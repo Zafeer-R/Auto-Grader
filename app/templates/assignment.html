@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Auto-Grader{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<p style="color: #6c757d; margin-bottom: 1.5rem;">Fill in your answers below and click Submit.</p>
+
+<form action="/assignment/{{ assignment_id }}/submit" method="post">
+    {% for q_id, q in questions.items() %}
+    <div class="question-block">
+        <label class="question-label">
+            {{ q.label }}
+            <span class="points-badge">{{ q.points }} pts</span>
+        </label>
+        {% if q.unit %}
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="text" name="q_{{ q_id }}" placeholder="Your answer"
+                   {% if q.type == "numerical" %}inputmode="decimal"{% endif %}>
+            <span style="color: #6c757d;">{{ q.unit }}</span>
+        </div>
+        {% else %}
+        <input type="text" name="q_{{ q_id }}" placeholder="Your answer">
+        {% endif %}
+        {% if q.hint %}
+        <div class="feedback">{{ q.hint }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn">Submit</button>
+</form>
+{% endblock %}

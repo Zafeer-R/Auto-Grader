@@ -1,0 +1,47 @@
+{
+  "assignment_id": "lab01",
+  "title": "Lab 1: Measurement & Error",
+  "total_points": 9,
+  "questions": {
+    "q1_1": {
+      "type": "identification",
+      "label": "(1) Which set has random errors only (A or B or C)?",
+      "accepted": ["A"],
+      "points": 1
+    },
+    "q1_2": {
+      "type": "identification",
+      "label": "(2) Which set has systematic errors only (A or B or C)?",
+      "accepted": ["C"],
+      "points": 1
+    },
+    "q1_3": {
+      "type": "identification",
+      "label": "(3) Which set has random and systematic errors (A or B or C)?",
+      "accepted": ["B"],
+      "points": 1
+    },
+    "q1_4": {
+      "type": "identification",
+      "label": "(4) Which reading causes Measurement errors (A or B)?",
+      "accepted": ["B"],
+      "points": 2
+    },
+    "q1_5a": {
+      "type": "numerical",
+      "label": "(5) Uncertainty of the stopwatch",
+      "expected": 0.01,
+      "tolerance": 0.005,
+      "points": 2,
+      "unit": "s"
+    },
+    "q1_5b": {
+      "type": "numerical",
+      "label": "(5) Uncertainty of the tape measure",
+      "expected": 0.05,
+      "tolerance": 0.025,
+      "points": 2,
+      "unit": "cm"
+    }
+  }
+}

@@ -43,3 +43,5 @@ vendor/
 coverage/
 .cache/
 tmp/
+.pytest_cache/
+*.egg-info/
