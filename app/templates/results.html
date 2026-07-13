@@ -9,19 +9,50 @@
 
 <h2>{{ title }} — Results</h2>
 
-{% for q_id, q_result in result.questions.items() %}
-<div class="question-block">
-    <span class="question-label">
-        {{ q_id }}
-        {% if q_result.correct %}
-        <span class="result-correct">&#10003; {{ q_result.score }}/{{ q_result.max_score }}</span>
-        {% else %}
-        <span class="result-incorrect">&#10007; {{ q_result.score }}/{{ q_result.max_score }}</span>
-        {% endif %}
-    </span>
-    <div class="feedback">{{ q_result.feedback }}</div>
-</div>
-{% endfor %}
+{% if section_results %}
+    {% for section in section_results %}
+    <div class="section-block">
+        <div class="section-header">
+            <h2>{{ section.title }}
+                <span style="opacity: 0.8; font-weight: normal; font-size: 0.9rem;">
+                    {{ section.score }} / {{ section.max_score }}
+                </span>
+            </h2>
+        </div>
+        <div class="section-body">
+            {% for q_id, q_result in section.questions.items() %}
+            <div class="question-block">
+                <span class="question-label">
+                    {{ q_result.label if q_result.label is defined else q_id }}
+                    {% if q_result.correct %}
+                    <span class="result-correct">&#10003; {{ q_result.score }}/{{ q_result.max_score }}</span>
+                    {% elif q_result.type is defined and q_result.type == "short_answer" %}
+                    <span class="deferred-badge">Pending TA review</span>
+                    {% else %}
+                    <span class="result-incorrect">&#10007; {{ q_result.score }}/{{ q_result.max_score }}</span>
+                    {% endif %}
+                </span>
+                <div class="feedback">{{ q_result.feedback }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    {% for q_id, q_result in result.questions.items() %}
+    <div class="question-block">
+        <span class="question-label">
+            {{ q_id }}
+            {% if q_result.correct %}
+            <span class="result-correct">&#10003; {{ q_result.score }}/{{ q_result.max_score }}</span>
+            {% else %}
+            <span class="result-incorrect">&#10007; {{ q_result.score }}/{{ q_result.max_score }}</span>
+            {% endif %}
+        </span>
+        <div class="feedback">{{ q_result.feedback }}</div>
+    </div>
+    {% endfor %}
+{% endif %}
 
 <a href="/assignment/{{ assignment_id }}" class="btn" style="display: inline-block; text-decoration: none;">
     Try Again

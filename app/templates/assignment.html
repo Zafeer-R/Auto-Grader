@@ -4,27 +4,74 @@
 
 {% block content %}
 <h1>{{ title }}</h1>
-<p style="color: #6c757d; margin-bottom: 1.5rem;">Fill in your answers below and click Submit.</p>
+<p style="color: #6c757d; margin-bottom: 1.5rem;">
+    Fill in your answers below and click Submit.
+    {% if total_points %}<strong>({{ total_points }} points total)</strong>{% endif %}
+</p>
 
 <form action="/assignment/{{ assignment_id }}/submit" method="post">
-    {% for q_id, q in questions.items() %}
-    <div class="question-block">
-        <label class="question-label">
-            {{ q.label }}
-            <span class="points-badge">{{ q.points }} pts</span>
-        </label>
-        {% if q.unit %}
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="text" name="q_{{ q_id }}" placeholder="Your answer"
-                   {% if q.type == "numerical" %}inputmode="decimal"{% endif %}>
-            <span style="color: #6c757d;">{{ q.unit }}</span>
+    {% for section in sections %}
+    <div class="section-block">
+        <div class="section-header">
+            <h2>{{ section.title }}
+                {% if section.points %}<span style="opacity: 0.8; font-weight: normal; font-size: 0.9rem;">[{{ section.points }} pts]</span>{% endif %}
+            </h2>
         </div>
-        {% else %}
-        <input type="text" name="q_{{ q_id }}" placeholder="Your answer">
+        {% if section.instructions %}
+        <div class="section-instructions">{{ section.instructions }}</div>
         {% endif %}
-        {% if q.hint %}
-        <div class="feedback">{{ q.hint }}</div>
-        {% endif %}
+        <div class="section-body">
+            {% if section.type == "checkpoint" %}
+            <div style="text-align: center; padding: 1rem;">
+                <span class="checkpoint-badge">TA Checkpoint</span>
+                <p style="color: #6c757d; margin-top: 0.5rem; margin-bottom: 0;">
+                    Your TA will verify this item.
+                </p>
+            </div>
+            {% else %}
+                {% for q_id, q in section.questions.items() %}
+                <div class="question-block">
+                    <label class="question-label">
+                        {{ q.label }}
+                        <span class="points-badge">{{ q.points }} pts</span>
+                        {% if q.grading is defined and q.grading == "deferred_m2" %}
+                        <span class="deferred-badge">TA graded</span>
+                        {% endif %}
+                    </label>
+
+                    {% if q.type == "report" %}
+                    <div class="report-fields">
+                        <input type="text" name="q_{{ q_id }}_value" placeholder="Value"
+                               inputmode="decimal">
+                        <span class="plus-minus">&plusmn;</span>
+                        <input type="text" name="q_{{ q_id }}_error" placeholder="Uncertainty"
+                               inputmode="decimal">
+                        {% if q.unit %}
+                        <span style="color: #6c757d;">{{ q.unit }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% elif q.type == "short_answer" %}
+                    <textarea name="q_{{ q_id }}" rows="3" placeholder="Your answer"></textarea>
+
+                    {% elif q.unit is defined and q.unit %}
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="text" name="q_{{ q_id }}" placeholder="Your answer"
+                               {% if q.type == "numerical" %}inputmode="decimal"{% endif %}>
+                        <span style="color: #6c757d;">{{ q.unit }}</span>
+                    </div>
+
+                    {% else %}
+                    <input type="text" name="q_{{ q_id }}" placeholder="Your answer">
+                    {% endif %}
+
+                    {% if q.hint is defined and q.hint %}
+                    <div class="feedback">{{ q.hint }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
     </div>
     {% endfor %}
 

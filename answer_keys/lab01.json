@@ -1,34 +1,92 @@
 {
   "assignment_id": "lab01",
   "title": "Lab 1: Measurement & Error",
-  "total_points": 9,
+  "total_points": 100,
+  "sections": [
+    {
+      "id": "safety",
+      "title": "Lab Safety Training",
+      "type": "checkpoint",
+      "points": 10,
+      "instructions": "The student has passed the training online (TA will check it and give the credit when grading this Report)."
+    },
+    {
+      "id": "q1",
+      "title": "Question 1",
+      "points": 9,
+      "instructions": null
+    },
+    {
+      "id": "q2",
+      "title": "Question 2",
+      "points": 15,
+      "instructions": "Fill in the blanks with appropriate numbers to 0.01 cm"
+    },
+    {
+      "id": "q3",
+      "title": "Question 3",
+      "points": 12,
+      "instructions": "Given the circumference C = \u03c0d, use the diameter in Question 2 and fill in the blanks with appropriate numbers to 0.01 cm"
+    },
+    {
+      "id": "checkpoint1",
+      "title": "Check Box #1",
+      "type": "checkpoint",
+      "points": 10,
+      "instructions": "Pass the reading-vernier-caliper test."
+    },
+    {
+      "id": "measurement",
+      "title": "Measurement",
+      "points": 2,
+      "instructions": "Record measurement uncertainties"
+    },
+    {
+      "id": "checkpoint2",
+      "title": "Check Box #2",
+      "type": "checkpoint",
+      "points": 10,
+      "instructions": "Data sets checked."
+    },
+    {
+      "id": "q4",
+      "title": "Question 4",
+      "points": 10,
+      "instructions": null
+    }
+  ],
   "questions": {
     "q1_1": {
       "type": "identification",
+      "section": "q1",
       "label": "(1) Which set has random errors only (A or B or C)?",
       "accepted": ["A"],
       "points": 1
     },
     "q1_2": {
       "type": "identification",
+      "section": "q1",
       "label": "(2) Which set has systematic errors only (A or B or C)?",
       "accepted": ["C"],
       "points": 1
     },
     "q1_3": {
       "type": "identification",
+      "section": "q1",
       "label": "(3) Which set has random and systematic errors (A or B or C)?",
       "accepted": ["B"],
       "points": 1
     },
     "q1_4": {
       "type": "identification",
+      "section": "q1",
       "label": "(4) Which reading causes Measurement errors (A or B)?",
       "accepted": ["B"],
       "points": 2
     },
     "q1_5a": {
       "type": "numerical",
+      "section": "q1",
       "label": "(5) Uncertainty of the stopwatch",
       "expected": 0.01,
       "tolerance": 0.005,
@@ -37,11 +95,148 @@
     },
     "q1_5b": {
       "type": "numerical",
+      "section": "q1",
       "label": "(5) Uncertainty of the tape measure",
       "expected": 0.05,
       "tolerance": 0.025,
       "points": 2,
       "unit": "cm"
+    },
+    "meas_balance": {
+      "type": "numerical",
+      "section": "measurement",
+      "label": "Uncertainty of balance",
+      "expected": 0.01,
+      "tolerance": 0.005,
+      "points": 1,
+      "unit": "g"
+    },
+    "meas_calipers": {
+      "type": "numerical",
+      "section": "measurement",
+      "label": "Uncertainty of calipers",
+      "expected": 0.005,
+      "tolerance": 0.0025,
+      "points": 1,
+      "unit": "cm"
+    },
+    "q2_1": {
+      "type": "numerical",
+      "section": "q2",
+      "label": "(1) The mean diameter of the disk",
+      "expected": 3.81,
+      "tolerance": 0.50,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm"
+    },
+    "q2_2": {
+      "type": "numerical",
+      "section": "q2",
+      "label": "(2) The standard deviation",
+      "expected": 0.01,
+      "tolerance": 0.50,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm"
+    },
+    "q2_3": {
+      "type": "numerical",
+      "section": "q2",
+      "label": "(3) Standard error of mean (SEOM)",
+      "expected": 0.00,
+      "tolerance": 0.50,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm"
+    },
+    "q2_4": {
+      "type": "numerical",
+      "section": "q2",
+      "label": "(4) Error",
+      "expected": 0.01,
+      "tolerance": 0.50,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm. Error = max(SEOM, instrument uncertainty)"
+    },
+    "q2_5": {
+      "type": "report",
+      "section": "q2",
+      "label": "(5) Report the value of the measurement",
+      "expected_value": 3.81,
+      "expected_error": 0.01,
+      "value_tolerance": 0.50,
+      "error_tolerance": 0.50,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Enter the value and uncertainty separately"
+    },
+    "q3_1": {
+      "type": "numerical",
+      "section": "q3",
+      "label": "(1) The mean circumference",
+      "expected": 11.97,
+      "tolerance": 2.0,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm. C = \u03c0d"
+    },
+    "q3_2": {
+      "type": "numerical",
+      "section": "q3",
+      "label": "(2) The highest value (max numerator, min denominator)",
+      "expected": 12.01,
+      "tolerance": 2.0,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm"
+    },
+    "q3_3": {
+      "type": "numerical",
+      "section": "q3",
+      "label": "(3) The lowest value (min numerator, max denominator)",
+      "expected": 11.93,
+      "tolerance": 2.0,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Express to 0.01 cm"
+    },
+    "q3_4": {
+      "type": "report",
+      "section": "q3",
+      "label": "(4) Report the circumference",
+      "expected_value": 11.97,
+      "expected_error": 0.04,
+      "value_tolerance": 2.0,
+      "error_tolerance": 2.0,
+      "precision": 2,
+      "points": 3,
+      "unit": "cm",
+      "hint": "Enter the value and uncertainty separately"
+    },
+    "q4_1": {
+      "type": "identification",
+      "section": "q4",
+      "label": "(1) Which metal most likely makes the main component of the tile?",
+      "accepted": ["aluminum", "aluminium", "al"],
+      "points": 4
+    },
+    "q4_2": {
+      "type": "short_answer",
+      "section": "q4",
+      "label": "(2) Write TWO reasons why your results are not completely the same as the density of metal that you answered in 1.",
+      "points": 6,
+      "grading": "deferred_m2",
+      "hint": "This question will be graded by your TA (automated grading coming soon)"
     }
   }
 }

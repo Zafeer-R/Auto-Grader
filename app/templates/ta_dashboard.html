@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}TA Dashboard - {{ title }}{% endblock %}
+
+{% block content %}
+<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+    <strong>{{ role|upper }} View</strong> — You are viewing as {{ role }}.
+</div>
+
+<h1>{{ title }}</h1>
+<p style="color: #6c757d; margin-bottom: 1.5rem;">Assignment overview</p>
+
+{% for section in sections %}
+<div class="section-block">
+    <div class="section-header">
+        <h2>{{ section.title }}
+            {% if section.points %}<span style="opacity: 0.8; font-weight: normal; font-size: 0.9rem;">[{{ section.points }} pts]</span>{% endif %}
+        </h2>
+    </div>
+    <div class="section-body" style="opacity: 0.85;">
+        {% if section.type == "checkpoint" %}
+        <div style="text-align: center; padding: 0.5rem;">
+            <span class="checkpoint-badge">TA Checkpoint</span>
+            <p style="color: #6c757d; margin-top: 0.5rem; margin-bottom: 0;">{{ section.instructions }}</p>
+        </div>
+        {% else %}
+            {% for q_id, q in section.questions.items() %}
+            <div class="question-block">
+                <span class="question-label">
+                    {{ q.label }}
+                    <span class="points-badge">{{ q.points }} pts</span>
+                    <span style="background: #e9ecef; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin-left: 0.5rem;">{{ q.type }}</span>
+                </span>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<div style="margin-top: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+    <h3 style="margin-top: 0; font-size: 1rem;">Coming Soon</h3>
+    <ul style="margin-bottom: 0; color: #6c757d;">
+        <li>Student submission list for your section</li>
+        <li>Checkpoint verification toggles</li>
+        <li>Grade passback status</li>
+    </ul>
+</div>
+
+<a href="/dev/launch" class="btn" style="display: inline-block; text-decoration: none; margin-top: 1rem;">
+    Switch to Student View
+</a>
+{% endblock %}
