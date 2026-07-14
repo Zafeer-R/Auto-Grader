@@ -1,6 +1,26 @@
 
 # ── GSD baseline (auto-generated) ──
-.gsd
+# Track planning artifacts, ignore runtime/DB
+.gsd/*
+!.gsd/PROJECT.md
+!.gsd/DECISIONS.md
+!.gsd/KNOWLEDGE.md
+!.gsd/CODEBASE.md
+!.gsd/ROADMAP.md
+!.gsd/PREFERENCES.md
+!.gsd/phases/
+.gsd/phases/**/T*-SUMMARY.md
+.gsd/**/*.jsonl
+.gsd/**/*.json
+.gsd/**/*.db
+.gsd/**/*.db-shm
+.gsd/**/*.db-wal
+.gsd/**/last-snapshot.md
+.gsd/**/*-DRAFT.md
+.gsd/STATE.md
+.gsd/QUEUE.md
+.gsd/runtime/
+.gsd/graphs/
 .gsd-worktrees/
 .gsd-backups/
 .gsd-id
