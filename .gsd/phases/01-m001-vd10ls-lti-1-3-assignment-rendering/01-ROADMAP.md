@@ -21,7 +21,7 @@
 - [x] **S03: Data Table Grading (R1, R2, R3)** `risk:high` `depends:[S02]`
   > After this: Student fills data tables R1, R2, R3 as editable grids, submits, gets per-cell grading with consistency flags
 
-- [ ] **S04: TA Checkpoint Verification UI** `risk:medium` `depends:[S01]`
+- [x] **S04: TA Checkpoint Verification UI** `risk:medium` `depends:[S01]`
   > After this: TA opens dashboard, sees student submissions, toggles checkpoint items, student score updates
 
 - [ ] **S05: AGS Grade Passback to Canvas** `risk:high` `depends:[S02,S04]`
