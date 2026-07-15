@@ -18,7 +18,7 @@
 - [x] **S02: Full Numerical + ID Grading (Lab01 Q1-Q4)** `risk:low` `depends:[S01]`
   > After this: Student fills all 19 questions across Q1-Q4, submits, gets section-grouped scored results
 
-- [ ] **S03: Data Table Grading (R1, R2, R3)** `risk:high` `depends:[S02]`
+- [x] **S03: Data Table Grading (R1, R2, R3)** `risk:high` `depends:[S02]`
   > After this: Student fills data tables R1, R2, R3 as editable grids, submits, gets per-cell grading with consistency flags
 
 - [ ] **S04: TA Checkpoint Verification UI** `risk:medium` `depends:[S01]`
