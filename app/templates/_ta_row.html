@@ -1,0 +1,24 @@
+<tr id="sub-{{ row.submission.id }}">
+    <td style="text-align: left;">
+        {{ row.student.display_name or row.student.lti_user_id }}
+        <div class="feedback">#{{ row.submission.id }}</div>
+    </td>
+    <td>{{ row.submission.submitted_at.strftime("%b %d, %H:%M") if row.submission.submitted_at else "—" }}</td>
+    <td>{{ row.score.auto_score }} / {{ row.submission.max_score }}</td>
+    <td>
+        {% if row.flags %}
+        <span class="flag-badge" title="{{ row.flags|join('&#10;') }}">&#9888; {{ row.flags|length }}</span>
+        {% else %}—{% endif %}
+    </td>
+    {% for cp in row.score.checkpoints %}
+    <td>
+        <button type="button" class="cp-toggle {{ 'cp-on' if cp.verified else 'cp-off' }}"
+                hx-post="/ta/submission/{{ row.submission.id }}/checkpoint/{{ cp.id }}"
+                hx-target="#sub-{{ row.submission.id }}" hx-swap="outerHTML"
+                title="{{ cp.instructions or cp.title }}">
+            {{ '✓' if cp.verified else '○' }} {{ cp.points }} pts
+        </button>
+    </td>
+    {% endfor %}
+    <td><strong>{{ row.score.total }} / {{ row.grade_max }}</strong></td>
+</tr>

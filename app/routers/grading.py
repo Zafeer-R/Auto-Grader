@@ -3,12 +3,15 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.grading.checkpoints import checkpoint_sections, effective_score
 from app.grading.engine import grade_submission
+from app.models.checkpoint import CheckpointState
 from app.models.submission import Submission
 
 router = APIRouter(tags=["grading"])
@@ -73,15 +76,10 @@ async def view_assignment(request: Request, assignment_id: str):
             "message": f"No answer key found for assignment '{assignment_id}'.",
         })
 
-    section_questions = _build_section_questions(answer_key)
-
     if role in ("ta", "instructor"):
-        return templates.TemplateResponse(request, "ta_dashboard.html", {
-            "assignment_id": assignment_id,
-            "title": answer_key.get("title", assignment_id),
-            "sections": section_questions,
-            "role": role,
-        })
+        return RedirectResponse(url=f"/ta/assignment/{assignment_id}", status_code=303)
+
+    section_questions = _build_section_questions(answer_key)
 
     return templates.TemplateResponse(request, "assignment.html", {
         "assignment_id": assignment_id,
@@ -147,16 +145,61 @@ async def submit_assignment(
         graded_at=datetime.datetime.now(datetime.timezone.utc),
     )
     db.add(submission)
+    await db.flush()
+
+    # Carry checkpoint verifications forward from the previous submission,
+    # so TA-verified items survive a resubmit.
+    verified_states = await _carry_forward_checkpoints(db, submission)
     await db.commit()
 
     section_results = _build_section_results(answer_key, result)
+    checkpoint_summary = effective_score(
+        result["total_score"], checkpoint_sections(answer_key), verified_states
+    )
 
     return templates.TemplateResponse(request, "results.html", {
         "assignment_id": assignment_id,
         "title": answer_key.get("title", assignment_id),
         "result": result,
         "section_results": section_results,
+        "checkpoint_summary": checkpoint_summary,
+        "grade_max": answer_key.get("total_points", result["total_max"]),
     })
+
+
+async def _carry_forward_checkpoints(
+    db: AsyncSession, submission: Submission
+) -> dict[str, bool]:
+    """Copy checkpoint states from the student's previous submission."""
+    prev = await db.execute(
+        select(Submission.id)
+        .where(
+            Submission.user_id == submission.user_id,
+            Submission.assignment_id == submission.assignment_id,
+            Submission.id != submission.id,
+        )
+        .order_by(Submission.id.desc())
+        .limit(1)
+    )
+    prev_id = prev.scalar_one_or_none()
+    if prev_id is None:
+        return {}
+
+    states = await db.execute(
+        select(CheckpointState).where(CheckpointState.submission_id == prev_id)
+    )
+    verified: dict[str, bool] = {}
+    for cs in states.scalars():
+        db.add(CheckpointState(
+            submission_id=submission.id,
+            checkpoint_id=cs.checkpoint_id,
+            verified=cs.verified,
+            verified_by=cs.verified_by,
+            verified_at=cs.verified_at,
+            points=cs.points,
+        ))
+        verified[cs.checkpoint_id] = cs.verified
+    return verified
 
 
 def _build_section_results(answer_key: dict, result: dict) -> list[dict]:

@@ -4,7 +4,13 @@
 
 {% block content %}
 <div class="score-summary">
-    Score: {{ result.total_score }} / {{ result.total_max }}
+    Score: {{ result.total_score }} / {{ result.total_max }} auto-graded
+    {% if checkpoint_summary is defined and checkpoint_summary and checkpoint_summary.checkpoint_max %}
+    <div style="font-size: 0.95rem; margin-top: 0.25rem; opacity: 0.9;">
+        TA checkpoints: {{ checkpoint_summary.checkpoint_score }} / {{ checkpoint_summary.checkpoint_max }}
+        &middot; Total so far: {{ checkpoint_summary.total }} / {{ grade_max }}
+    </div>
+    {% endif %}
 </div>
 
 <h2>{{ title }} — Results</h2>
@@ -96,6 +102,33 @@
         <div class="feedback">{{ q_result.feedback }}</div>
     </div>
     {% endfor %}
+{% endif %}
+
+{% if checkpoint_summary is defined and checkpoint_summary and checkpoint_summary.checkpoints %}
+<div class="section-block">
+    <div class="section-header">
+        <h2>TA Checkpoints
+            <span style="opacity: 0.8; font-weight: normal; font-size: 0.9rem;">
+                {{ checkpoint_summary.checkpoint_score }} / {{ checkpoint_summary.checkpoint_max }}
+            </span>
+        </h2>
+    </div>
+    <div class="section-body">
+        {% for cp in checkpoint_summary.checkpoints %}
+        <div class="question-block">
+            <span class="question-label">
+                {{ cp.title }}
+                {% if cp.verified %}
+                <span class="result-correct">&#10003; +{{ cp.points }} pts</span>
+                {% else %}
+                <span class="deferred-badge">Pending TA verification &middot; {{ cp.points }} pts</span>
+                {% endif %}
+            </span>
+            {% if cp.instructions %}<div class="feedback">{{ cp.instructions }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endif %}
 
 <a href="/assignment/{{ assignment_id }}" class="btn" style="display: inline-block; text-decoration: none;">
