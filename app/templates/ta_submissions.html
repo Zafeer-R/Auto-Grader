@@ -24,6 +24,7 @@
             <th>{{ cp.title }}</th>
             {% endfor %}
             <th>Total</th>
+            <th>Gradebook</th>
         </tr>
     </thead>
     <tbody>
@@ -39,6 +40,14 @@
 {% endif %}
 
 <div style="margin-top: 1.5rem;">
+    {% if rows %}
+    <form action="/ta/assignment/{{ assignment_id }}/post-all" method="post" style="display: inline;">
+        <button type="submit" class="btn"
+                title="Post each student's latest effective score to the Canvas gradebook (held until instructor release)">
+            Post All Grades
+        </button>
+    </form>
+    {% endif %}
     <a href="/ta/assignment/{{ assignment_id }}/structure" class="btn" style="display: inline-block; text-decoration: none;">
         View Assignment Structure
     </a>

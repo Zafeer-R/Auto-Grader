@@ -21,4 +21,25 @@
     </td>
     {% endfor %}
     <td><strong>{{ row.score.total }} / {{ row.grade_max }}</strong></td>
+    <td style="white-space: nowrap;">
+        {% if row.passback %}
+            {% if row.passback.status == "posted" %}
+            <span class="ags-chip ags-posted" title="Posted {{ row.passback.posted_at }}">&#10003; posted</span>
+            {% elif row.passback.status == "dry_run" %}
+            <span class="ags-chip ags-dry" title="Dry run — AGS_MODE=dry_run, nothing sent to Canvas">dry run</span>
+            {% elif row.passback.status == "failed" %}
+            <span class="ags-chip ags-failed" title="{{ row.passback.last_error }}">&#9888; failed ({{ row.passback.attempts }})</span>
+            {% else %}
+            <span class="ags-chip ags-pending">pending</span>
+            {% endif %}
+        {% else %}
+        <span class="ags-chip ags-pending">—</span>
+        {% endif %}
+        <button type="button" class="cp-toggle cp-off"
+                hx-post="/ta/submission/{{ row.submission.id }}/post-grade"
+                hx-target="#sub-{{ row.submission.id }}" hx-swap="outerHTML"
+                title="Post this student's effective score to the Canvas gradebook">
+            {{ "Retry" if row.passback and row.passback.status == "failed" else "Post" }}
+        </button>
+    </td>
 </tr>

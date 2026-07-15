@@ -12,7 +12,9 @@ from app.database import get_db
 from app.grading.checkpoints import checkpoint_sections, effective_score
 from app.grading.engine import grade_submission
 from app.models.checkpoint import CheckpointState
+from app.models.passback import GradePassback
 from app.models.submission import Submission
+from app.models.user import User
 
 router = APIRouter(tags=["grading"])
 templates = Jinja2Templates(directory="app/templates")
@@ -150,12 +152,23 @@ async def submit_assignment(
     # Carry checkpoint verifications forward from the previous submission,
     # so TA-verified items survive a resubmit.
     verified_states = await _carry_forward_checkpoints(db, submission)
-    await db.commit()
 
     section_results = _build_section_results(answer_key, result)
     checkpoint_summary = effective_score(
         result["total_score"], checkpoint_sections(answer_key), verified_states
     )
+
+    # Record passback intent; the TA posts it from the dashboard.
+    student = await db.get(User, user_id)
+    db.add(GradePassback(
+        submission_id=submission.id,
+        lineitem_url=request.session.get("ags_lineitem", ""),
+        lti_user_id=student.lti_user_id if student else "",
+        score_given=checkpoint_summary["total"],
+        score_maximum=answer_key.get("total_points", result["total_max"]),
+        status="pending",
+    ))
+    await db.commit()
 
     return templates.TemplateResponse(request, "results.html", {
         "assignment_id": assignment_id,
