@@ -1,4 +1,11 @@
+import re
 from dataclasses import dataclass
+
+_NUMERIC_LITERAL = re.compile(
+    r"^[+-]?(?:(?:\d+(?:\.(?P<fraction>\d*))?)|"
+    r"(?:\.(?P<leading_fraction>\d+)))"
+    r"(?:[eE](?P<exponent>[+-]?\d+))?$"
+)
 
 
 @dataclass
@@ -27,6 +34,35 @@ def count_sig_figs(answer: str) -> int:
     return len(stripped)
 
 
+def decimal_places(answer: str) -> int | None:
+    """Return the decimal resolution expressed by a numeric literal.
+
+    Scientific notation shifts the mantissa's resolution by its exponent:
+    ``5.080e0`` carries three decimal places, ``5.080e1`` carries two, and
+    ``5080e-3`` carries three. Invalid numeric syntax returns ``None``.
+    """
+    match = _NUMERIC_LITERAL.fullmatch(answer.strip())
+    if match is None:
+        return None
+
+    fraction = match.group("fraction")
+    if fraction is None:
+        fraction = match.group("leading_fraction") or ""
+    try:
+        exponent = int(match.group("exponent") or "0")
+    except ValueError:
+        return None
+    return len(fraction) - exponent
+
+
+def has_required_decimal_places(answer: str, precision: int | None) -> bool:
+    """Whether ``answer`` expresses at least the requested decimal resolution."""
+    if precision is None:
+        return True
+    expressed_places = decimal_places(answer)
+    return expressed_places is not None and expressed_places >= precision
+
+
 def grade_numerical(
     student_answer: str,
     expected: float,
@@ -42,8 +78,8 @@ def grade_numerical(
         expected: The expected correct value.
         tolerance: Absolute tolerance for comparison (e.g. 0.01 means +-0.01).
         max_score: Maximum points for this question.
-        precision: Required decimal places. If set, the answer must have exactly this many
-                   decimal places (e.g. precision=2 means "to 0.01").
+        precision: Required decimal places. If set, the answer must have at least
+                   this resolution (e.g. precision=2 means "to 0.01").
         sig_figs: Required significant figures. If set, the answer must carry at
                   least this many (extra precision is accepted).
     """
@@ -63,24 +99,13 @@ def grade_numerical(
             feedback=f"Could not parse '{cleaned}' as a number.",
         )
 
-    # Check precision (decimal places) if required
-    if precision is not None:
-        if "." in cleaned:
-            decimal_places = len(cleaned.rstrip("0").split(".")[-1])
-            # Also check the raw decimal places (before stripping trailing zeros)
-            raw_decimal_places = len(cleaned.split(".")[-1])
-        else:
-            decimal_places = 0
-            raw_decimal_places = 0
-
-        # Accept if the student wrote at least the required precision
-        if raw_decimal_places < precision:
-            return GradeResult(
-                correct=False,
-                score=0.0,
-                max_score=max_score,
-                feedback=f"Answer must be expressed to {precision} decimal places.",
-            )
+    if not has_required_decimal_places(cleaned, precision):
+        return GradeResult(
+            correct=False,
+            score=0.0,
+            max_score=max_score,
+            feedback=f"Answer must be expressed to {precision} decimal places.",
+        )
 
     # Check significant figures if required
     if sig_figs is not None and count_sig_figs(cleaned) < sig_figs:

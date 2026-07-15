@@ -20,6 +20,7 @@ async def test_post_grade_locks_submission_through_canvas_post(monkeypatch):
     submission = SimpleNamespace(
         id=5,
         user_id=9,
+        assignment_id="lab01",
         total_score=22.0,
         max_score=30.0,
     )
@@ -55,7 +56,12 @@ async def test_post_grade_locks_submission_through_canvas_post(monkeypatch):
         commit=AsyncMock(side_effect=commit),
     )
     request = SimpleNamespace(
-        session={"ags_lineitem": "https://canvas.test/line_items/17"}
+        session={
+            "launch_contexts": {
+                "lab01": {"ags_lineitem": "https://canvas.test/line_items/17"},
+                "lab08": {"ags_lineitem": "https://canvas.test/line_items/88"},
+            }
+        }
     )
     client = SimpleNamespace(post_score=AsyncMock(side_effect=post_score))
     monkeypatch.setattr(ta, "_ags_client", lambda: client)
@@ -68,6 +74,9 @@ async def test_post_grade_locks_submission_through_canvas_post(monkeypatch):
     )
 
     _assert_submission_for_update(statements[0])
+    assert client.post_score.await_args.kwargs["lineitem_url"] == (
+        "https://canvas.test/line_items/17"
+    )
     assert events == ["lock", "checkpoints", "passback", "post", "commit"]
 
 
@@ -127,4 +136,3 @@ async def test_toggle_locks_same_submission_before_checkpoint_write(monkeypatch)
     _assert_submission_for_update(statements[0])
     assert events == ["lock", "toggle", "passback", "commit"]
     assert passback.status == "pending"
-

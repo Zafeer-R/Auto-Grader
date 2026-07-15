@@ -24,6 +24,7 @@ from jose.exceptions import JWSError
 
 TOKEN_SCOPE = "https://purl.imsglobal.org/spec/lti-ags/scope/score"
 ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+AGSMode = Literal["live", "dry_run", "disabled"]
 
 
 class AGSError(Exception):
@@ -43,7 +44,7 @@ class AGSClient:
 
     def __init__(
         self,
-        mode: str,
+        mode: AGSMode,
         token_url: str = "",
         client_id: str = "",
         private_key_pem: str = "",
@@ -161,6 +162,10 @@ class AGSClient:
             raise AGSError("AGS passback is disabled (AGS_MODE=disabled).")
         if self.mode == "dry_run":
             return {"status": "dry_run", "attempts": 0, "payload": payload}
+        if self.mode != "live":
+            raise AGSError(
+                f"Unsupported AGS mode {self.mode!r}; expected live, dry_run, or disabled."
+            )
         if not (self.token_url and self.client_id and self.private_key_pem):
             raise AGSError(
                 "AGS live mode is not configured (need LTI_TOKEN_URL, "

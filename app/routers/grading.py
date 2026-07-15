@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.grading.checkpoints import checkpoint_sections, effective_score
 from app.grading.engine import grade_submission
+from app.launch_context import get_launch_context
 from app.models.checkpoint import CheckpointState
 from app.models.passback import GradePassback
 from app.models.submission import Submission
@@ -22,13 +23,17 @@ templates = Jinja2Templates(directory="app/templates")
 ANSWER_KEYS_DIR = Path("answer_keys")
 
 
-def _require_launched_assignment(request: Request, assignment_id: str) -> None:
+def _require_launched_assignment(
+    request: Request, assignment_id: str
+) -> dict[str, str]:
     """Ensure grading stays bound to the assignment from the signed launch session."""
-    if request.session.get("assignment_id") != assignment_id:
+    context = get_launch_context(request.session, assignment_id)
+    if context is None:
         raise HTTPException(
             status_code=403,
             detail="Assignment does not match the active launch.",
         )
+    return context
 
 
 def load_answer_key(assignment_id: str) -> dict | None:
@@ -114,7 +119,7 @@ async def submit_assignment(
             "message": "Not authenticated.",
         })
 
-    _require_launched_assignment(request, assignment_id)
+    launch_context = _require_launched_assignment(request, assignment_id)
 
     form_data = await request.form()
 
@@ -173,7 +178,7 @@ async def submit_assignment(
     student = await db.get(User, user_id)
     db.add(GradePassback(
         submission_id=submission.id,
-        lineitem_url=request.session.get("ags_lineitem", ""),
+        lineitem_url=launch_context["ags_lineitem"],
         lti_user_id=student.lti_user_id if student else "",
         score_given=checkpoint_summary["total"],
         score_maximum=answer_key.get("total_points", result["total_max"]),
@@ -196,7 +201,7 @@ async def _carry_forward_checkpoints(
 ) -> dict[str, bool]:
     """Copy checkpoint states from the student's previous submission."""
     prev = await db.execute(
-        select(Submission.id)
+        select(Submission)
         .where(
             Submission.user_id == submission.user_id,
             Submission.assignment_id == submission.assignment_id,
@@ -204,13 +209,16 @@ async def _carry_forward_checkpoints(
         )
         .order_by(Submission.id.desc())
         .limit(1)
+        .with_for_update()
     )
-    prev_id = prev.scalar_one_or_none()
-    if prev_id is None:
+    prev_submission = prev.scalar_one_or_none()
+    if prev_submission is None:
         return {}
 
     states = await db.execute(
-        select(CheckpointState).where(CheckpointState.submission_id == prev_id)
+        select(CheckpointState).where(
+            CheckpointState.submission_id == prev_submission.id
+        )
     )
     verified: dict[str, bool] = {}
     for cs in states.scalars():

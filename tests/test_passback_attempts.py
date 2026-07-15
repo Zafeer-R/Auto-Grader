@@ -12,6 +12,7 @@ def _post_grade_context(*, existing_attempts: int):
     submission = SimpleNamespace(
         id=5,
         user_id=9,
+        assignment_id="lab01",
         total_score=22.0,
         max_score=30.0,
     )
@@ -31,7 +32,10 @@ def _post_grade_context(*, existing_attempts: int):
         commit=AsyncMock(),
     )
     request = SimpleNamespace(
-        session={"ags_lineitem": "https://canvas.test/line_items/17"}
+        session={
+            "assignment_id": "lab01",
+            "ags_lineitem": "https://canvas.test/line_items/17",
+        }
     )
     answer_key = {"total_points": 30, "questions": {}}
     return db, request, submission, passback, answer_key
@@ -80,6 +84,7 @@ async def test_ta_initializes_attempts_when_creating_passback(monkeypatch):
     submission = SimpleNamespace(
         id=5,
         user_id=9,
+        assignment_id="lab01",
         total_score=22.0,
         max_score=30.0,
     )
@@ -98,7 +103,10 @@ async def test_ta_initializes_attempts_when_creating_passback(monkeypatch):
         commit=AsyncMock(),
     )
     request = SimpleNamespace(
-        session={"ags_lineitem": "https://canvas.test/line_items/17"}
+        session={
+            "assignment_id": "lab01",
+            "ags_lineitem": "https://canvas.test/line_items/17",
+        }
     )
     answer_key = {"total_points": 30, "questions": {}}
     client = SimpleNamespace(

@@ -13,7 +13,7 @@ Tables come in two kinds:
 import math
 from statistics import mean, stdev
 
-from app.grading.numerical import grade_numerical
+from app.grading.numerical import grade_numerical, has_required_decimal_places
 
 
 def _parse_cell(raw: str | None) -> float | None:
@@ -27,15 +27,6 @@ def _parse_cell(raw: str | None) -> float | None:
     except ValueError:
         return None
     return value if math.isfinite(value) else None
-
-
-def _check_precision(raw: str, precision: int | None) -> bool:
-    """True if the answer is expressed to at least `precision` decimal places."""
-    if precision is None:
-        return True
-    cleaned = str(raw).strip()
-    raw_decimal_places = len(cleaned.split(".")[-1]) if "." in cleaned else 0
-    return raw_decimal_places >= precision
 
 
 def _consistency_tolerance(derived: float, precision: int | None) -> float:
@@ -103,25 +94,34 @@ def compute_r3_derived(r1_stats: dict) -> dict | None:
         * (width["mean"] - width["error"])
         * (thickness["mean"] - thickness["error"])
     )
+    if not all(math.isfinite(value) for value in (v_mean, v_high, v_low)):
+        return None
     if v_low <= 0 or v_mean <= 0:
         return None
 
     d_mean = mass_["mean"] / v_mean
     d_high = (mass_["mean"] + mass_["error"]) / v_low
     d_low = (mass_["mean"] - mass_["error"]) / v_high
+    v_uncertainty = (v_high - v_low) / 2
+    d_uncertainty = (d_high - d_low) / 2
+    if not all(
+        math.isfinite(value)
+        for value in (d_mean, d_high, d_low, v_uncertainty, d_uncertainty)
+    ):
+        return None
 
     return {
         "volume": {
             "mean": v_mean,
             "highest": v_high,
             "lowest": v_low,
-            "uncertainty": (v_high - v_low) / 2,
+            "uncertainty": v_uncertainty,
         },
         "density": {
             "mean": d_mean,
             "highest": d_high,
             "lowest": d_low,
-            "uncertainty": (d_high - d_low) / 2,
+            "uncertainty": d_uncertainty,
         },
     }
 
@@ -160,7 +160,7 @@ def _grade_cell(raw: str | None, cell_def: dict, precision: int | None) -> dict:
             "max_score": result.max_score, "feedback": result.feedback,
         }
 
-    if not _check_precision(raw_str, precision):
+    if not has_required_decimal_places(raw_str, precision):
         return {
             "correct": False, "score": 0.0, "max_score": points,
             "feedback": f"Answer must be expressed to {precision} decimal places.",
