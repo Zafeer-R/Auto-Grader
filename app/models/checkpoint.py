@@ -1,13 +1,22 @@
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
 
+CHECKPOINT_STATE_UNIQUE_CONSTRAINT = "uq_checkpoint_states_submission_checkpoint"
+
 
 class CheckpointState(Base):
     __tablename__ = "checkpoint_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "submission_id",
+            "checkpoint_id",
+            name=CHECKPOINT_STATE_UNIQUE_CONSTRAINT,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id"))

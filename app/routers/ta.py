@@ -6,12 +6,16 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
 from app.grading.checkpoints import checkpoint_sections, effective_score
-from app.models.checkpoint import CheckpointState
+from app.models.checkpoint import (
+    CHECKPOINT_STATE_UNIQUE_CONSTRAINT,
+    CheckpointState,
+)
 from app.models.passback import GradePassback
 from app.models.submission import Submission
 from app.models.user import User
@@ -28,6 +32,60 @@ def _ags_client() -> AGSClient:
         token_url=settings.lti_token_url,
         client_id=settings.lti_client_id,
         private_key_pem=settings.lti_tool_private_key,
+        key_id=settings.lti_tool_key_id,
+    )
+
+
+def _grading_progress(answer_key: dict) -> str:
+    """Return the AGS grading state implied by this assignment's graders."""
+    for question in answer_key.get("questions", {}).values():
+        grading = str(question.get("grading", "")).lower()
+        if question.get("type") == "short_answer" or grading.startswith(
+            ("deferred", "manual")
+        ):
+            return "PendingManual"
+    return "FullyGraded"
+
+
+async def _lock_submission(
+    db: AsyncSession, submission_id: int
+) -> Submission | None:
+    """Lock a submission as the serialization point for checkpoint passback."""
+    result = await db.execute(
+        select(Submission)
+        .where(Submission.id == submission_id)
+        .with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
+def _checkpoint_toggle_statement(
+    *,
+    submission_id: int,
+    checkpoint_id: str,
+    verified_by: int,
+    verified_at: datetime.datetime,
+    points: float,
+):
+    """Build one PostgreSQL statement that serializes checkpoint toggles."""
+    statement = pg_insert(CheckpointState).values(
+        submission_id=submission_id,
+        checkpoint_id=checkpoint_id,
+        verified=True,
+        verified_by=verified_by,
+        verified_at=verified_at,
+        points=points,
+        updated_at=verified_at,
+    )
+    return statement.on_conflict_do_update(
+        constraint=CHECKPOINT_STATE_UNIQUE_CONSTRAINT,
+        set_={
+            "verified": ~CheckpointState.verified,
+            "verified_by": statement.excluded.verified_by,
+            "verified_at": statement.excluded.verified_at,
+            "points": statement.excluded.points,
+            "updated_at": statement.excluded.updated_at,
+        },
     )
 
 
@@ -35,6 +93,11 @@ async def _post_grade(
     db: AsyncSession, request: Request, submission: Submission, answer_key: dict
 ) -> GradePassback:
     """Post a submission's effective score via AGS, persisting the outcome."""
+    locked_submission = await _lock_submission(db, submission.id)
+    if locked_submission is None:
+        raise LookupError(f"Submission {submission.id} no longer exists.")
+    submission = locked_submission
+
     result = await db.execute(
         select(CheckpointState).where(CheckpointState.submission_id == submission.id)
     )
@@ -48,7 +111,7 @@ async def _post_grade(
     )
     passback = result.scalar_one_or_none()
     if passback is None:
-        passback = GradePassback(submission_id=submission.id)
+        passback = GradePassback(submission_id=submission.id, attempts=0)
         db.add(passback)
 
     student = await db.get(User, submission.user_id)
@@ -65,6 +128,7 @@ async def _post_grade(
             lti_user_id=passback.lti_user_id,
             score_given=passback.score_given,
             score_maximum=passback.score_maximum,
+            grading_progress=_grading_progress(answer_key),
         )
         passback.status = outcome["status"]
         passback.attempts += max(outcome["attempts"], 1)
@@ -72,7 +136,7 @@ async def _post_grade(
         passback.posted_at = datetime.datetime.now(datetime.timezone.utc)
     except AGSError as exc:
         passback.status = "failed"
-        passback.attempts += 1
+        passback.attempts += exc.attempts
         passback.last_error = str(exc)[:500]
 
     await db.commit()
@@ -88,23 +152,16 @@ def _require_ta(request: Request) -> str | None:
     return None
 
 
-async def _submission_row(
-    db: AsyncSession, submission: Submission, student: User, answer_key: dict
+def _build_submission_row(
+    submission: Submission,
+    student: User,
+    answer_key: dict,
+    states: dict[str, bool],
+    passback: GradePassback | None,
 ) -> dict:
-    """Build one dashboard row: scores, checkpoint states, consistency flags."""
-    result = await db.execute(
-        select(CheckpointState).where(CheckpointState.submission_id == submission.id)
-    )
-    states = {cs.checkpoint_id: cs.verified for cs in result.scalars()}
-
+    """Build a dashboard row from submission data already loaded from storage."""
     checkpoints = checkpoint_sections(answer_key)
     score = effective_score(submission.total_score or 0.0, checkpoints, states)
-
-    result = await db.execute(
-        select(GradePassback).where(GradePassback.submission_id == submission.id)
-    )
-    passback = result.scalar_one_or_none()
-
     flags = (submission.grade_result or {}).get("flags", [])
     return {
         "submission": submission,
@@ -114,6 +171,23 @@ async def _submission_row(
         "passback": passback,
         "grade_max": answer_key.get("total_points", 0),
     }
+
+
+async def _submission_row(
+    db: AsyncSession, submission: Submission, student: User, answer_key: dict
+) -> dict:
+    """Load and build one row for an HTMX submission refresh."""
+    result = await db.execute(
+        select(CheckpointState).where(CheckpointState.submission_id == submission.id)
+    )
+    states = {cs.checkpoint_id: cs.verified for cs in result.scalars()}
+
+    result = await db.execute(
+        select(GradePassback).where(GradePassback.submission_id == submission.id)
+    )
+    passback = result.scalar_one_or_none()
+
+    return _build_submission_row(submission, student, answer_key, states, passback)
 
 
 @router.get("/assignment/{assignment_id}", response_class=HTMLResponse)
@@ -137,9 +211,40 @@ async def ta_dashboard(
         .where(Submission.assignment_id == assignment_id)
         .order_by(Submission.submitted_at.desc())
     )
+    submissions = result.all()
+    submission_ids = [submission.id for submission, _student in submissions]
+
+    states_by_submission: dict[int, dict[str, bool]] = {}
+    passbacks_by_submission: dict[int, GradePassback] = {}
+    if submission_ids:
+        result = await db.execute(
+            select(CheckpointState).where(
+                CheckpointState.submission_id.in_(submission_ids)
+            )
+        )
+        for state in result.scalars():
+            states_by_submission.setdefault(state.submission_id, {})[
+                state.checkpoint_id
+            ] = state.verified
+
+        result = await db.execute(
+            select(GradePassback).where(
+                GradePassback.submission_id.in_(submission_ids)
+            )
+        )
+        passbacks_by_submission = {
+            passback.submission_id: passback for passback in result.scalars()
+        }
+
     rows = [
-        await _submission_row(db, submission, student, answer_key)
-        for submission, student in result.all()
+        _build_submission_row(
+            submission,
+            student,
+            answer_key,
+            states_by_submission.get(submission.id, {}),
+            passbacks_by_submission.get(submission.id),
+        )
+        for submission, student in submissions
     ]
 
     return templates.TemplateResponse(request, "ta_submissions.html", {
@@ -163,7 +268,7 @@ async def toggle_checkpoint(
     if error:
         return templates.TemplateResponse(request, "error.html", {"message": error})
 
-    submission = await db.get(Submission, submission_id)
+    submission = await _lock_submission(db, submission_id)
     if not submission:
         return templates.TemplateResponse(request, "error.html", {
             "message": f"Submission {submission_id} not found.",
@@ -176,29 +281,26 @@ async def toggle_checkpoint(
             "message": f"Unknown checkpoint '{checkpoint_id}'.",
         })
 
-    result = await db.execute(
-        select(CheckpointState).where(
-            CheckpointState.submission_id == submission_id,
-            CheckpointState.checkpoint_id == checkpoint_id,
-        )
-    )
-    state = result.scalar_one_or_none()
     now = datetime.datetime.now(datetime.timezone.utc)
-    if state is None:
-        state = CheckpointState(
+    await db.execute(
+        _checkpoint_toggle_statement(
             submission_id=submission_id,
             checkpoint_id=checkpoint_id,
-            verified=True,
             verified_by=request.session["user_id"],
             verified_at=now,
             points=checkpoints[checkpoint_id]["points"],
         )
-        db.add(state)
-    else:
-        state.verified = not state.verified
-        state.verified_by = request.session["user_id"]
-        state.verified_at = now
-        state.points = checkpoints[checkpoint_id]["points"]
+    )
+
+    result = await db.execute(
+        select(GradePassback).where(GradePassback.submission_id == submission_id)
+    )
+    passback = result.scalar_one_or_none()
+    if passback is not None:
+        passback.status = "pending"
+        passback.posted_at = None
+        passback.last_error = ""
+
     await db.commit()
 
     student = await db.get(User, submission.user_id)

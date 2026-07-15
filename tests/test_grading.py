@@ -261,6 +261,37 @@ class TestR1Stats:
         assert stats["mass"] is None
         assert stats["length"] is not None
 
+    @pytest.mark.parametrize("non_finite", ["nan", "inf", "-inf", "1e309"])
+    def test_non_finite_measurement_invalidates_row(self, non_finite):
+        tables = _lab01_tables()
+        length = {**R1_ANSWERS["length"], "3": non_finite}
+
+        stats = compute_r1_stats(
+            {**R1_ANSWERS, "length": length},
+            tables["r1"],
+        )
+
+        assert stats["length"] is None
+        assert stats["width"] is not None
+
+    def test_extreme_finite_measurements_invalidate_row(self):
+        tables = _lab01_tables()
+        length = {
+            "1": "1.7e308",
+            "2": "-1.7e308",
+            "3": "1.7e308",
+            "4": "-1.7e308",
+            "5": "1.7e308",
+        }
+
+        stats = compute_r1_stats(
+            {**R1_ANSWERS, "length": length},
+            tables["r1"],
+        )
+
+        assert stats["length"] is None
+        assert stats["width"] is not None
+
     def test_r3_derivation(self):
         tables = _lab01_tables()
         stats = compute_r1_stats(R1_ANSWERS, tables["r1"])
@@ -331,6 +362,62 @@ class TestGradeDataTables:
         cell = result["tables"]["r2"]["cells"]["mass.seom"]
         assert cell["score"] == 0.0
         assert "parse" in cell["feedback"].lower()
+
+    @pytest.mark.parametrize("non_finite", ["nan", "inf", "-inf", "1e309"])
+    def test_non_finite_expected_cell_scores_zero(self, non_finite):
+        tables = _lab01_tables()
+        r2 = {
+            **R2_ANSWERS,
+            "length": {**R2_ANSWERS["length"], "mean": non_finite},
+        }
+
+        result = grade_data_tables(
+            tables,
+            {"r1": R1_ANSWERS, "r2": r2, "r3": R3_ANSWERS},
+        )
+        cell = result["tables"]["r2"]["cells"]["length.mean"]
+
+        assert cell["correct"] is False
+        assert cell["score"] == 0.0
+        assert "finite number" in cell["feedback"]
+
+    def test_non_finite_derived_cell_without_expected_scores_zero(self):
+        tables = _lab01_tables()
+        r2 = {
+            **R2_ANSWERS,
+            "length": {**R2_ANSWERS["length"], "sd": "nan"},
+        }
+
+        result = grade_data_tables(
+            tables,
+            {"r1": R1_ANSWERS, "r2": r2, "r3": R3_ANSWERS},
+        )
+        cell = result["tables"]["r2"]["cells"]["length.sd"]
+
+        assert cell["correct"] is False
+        assert cell["score"] == 0.0
+        assert "finite number" in cell["feedback"]
+
+    def test_extreme_finite_r1_values_skip_consistency_without_crashing(self):
+        tables = _lab01_tables()
+        r1 = {
+            **R1_ANSWERS,
+            "length": {
+                "1": "1.7e308",
+                "2": "-1.7e308",
+                "3": "1.7e308",
+                "4": "-1.7e308",
+                "5": "1.7e308",
+            },
+        }
+
+        result = grade_data_tables(
+            tables,
+            {"r1": r1, "r2": R2_ANSWERS, "r3": R3_ANSWERS},
+        )
+
+        assert result["tables"]["r2"]["cells"]["length.mean"]["consistent"] is None
+        assert any("could not verify" in flag for flag in result["tables"]["r3"]["flags"])
 
     def test_missing_r1_skips_consistency_grades_rest(self):
         tables = _lab01_tables()

@@ -1,9 +1,12 @@
+import datetime
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 from jinja2 import Environment, FileSystemLoader
 
 from app.grading.checkpoints import checkpoint_sections, effective_score
+from app.routers import ta
 
 
 def _lab01():
@@ -61,6 +64,55 @@ class TestEffectiveScore:
         assert score["total"] == 100.0
 
 
+class TestCheckpointPassbackInvalidation:
+    async def test_toggle_marks_existing_passback_pending(self, monkeypatch):
+        submission = SimpleNamespace(id=7, user_id=2, assignment_id="lab01")
+        student = SimpleNamespace(id=2)
+        passback = SimpleNamespace(
+            status="posted",
+            posted_at=datetime.datetime.now(datetime.timezone.utc),
+            last_error="old error",
+        )
+
+        lock_result = Mock()
+        lock_result.scalar_one_or_none.return_value = submission
+        toggle_result = Mock()
+        passback_result = Mock()
+        passback_result.scalar_one_or_none.return_value = passback
+        db = SimpleNamespace(
+            get=AsyncMock(return_value=student),
+            execute=AsyncMock(
+                side_effect=[lock_result, toggle_result, passback_result]
+            ),
+            commit=AsyncMock(),
+        )
+        request = SimpleNamespace(session={"user_id": 1, "role": "ta"})
+        answer_key = {
+            "sections": [
+                {
+                    "id": "safety",
+                    "title": "Lab Safety Training",
+                    "type": "checkpoint",
+                    "points": 10,
+                }
+            ]
+        }
+        monkeypatch.setattr(ta, "load_answer_key", lambda _assignment_id: answer_key)
+        monkeypatch.setattr(ta, "_submission_row", AsyncMock(return_value={}))
+        monkeypatch.setattr(
+            ta.templates,
+            "TemplateResponse",
+            lambda _request, _template, context: context,
+        )
+
+        await ta.toggle_checkpoint(request, submission.id, "safety", db)
+
+        assert passback.status == "pending"
+        assert passback.posted_at is None
+        assert passback.last_error == ""
+        db.commit.assert_awaited_once()
+
+
 class TestTaDashboardTemplates:
     def _render(self, template, **ctx):
         env = Environment(loader=FileSystemLoader("app/templates"))
@@ -103,6 +155,31 @@ class TestTaDashboardTemplates:
         )
         assert "No submissions yet" in html
 
+    def test_lab01_section_budget_and_zero_point_measurement_heading(self):
+        key = _lab01()
+        assert sum(section.get("points", 0) for section in key["sections"]) == key[
+            "total_points"
+        ]
+
+        sections = ta._build_section_questions(key)
+        measurement = next(
+            section for section in sections if section["id"] == "measurement"
+        )
+        assert measurement["points"] == 0
+
+        html = self._render(
+            "assignment.html",
+            assignment_id="lab01",
+            title=key["title"],
+            sections=sections,
+            total_points=key["total_points"],
+            role="student",
+        )
+        measurement_heading = html.split("<h2>Measurement", 1)[1].split("</h2>", 1)[
+            0
+        ]
+        assert "pts" not in measurement_heading
+
     def test_results_page_shows_checkpoint_status(self):
         summary = effective_score(40.0, checkpoint_sections(_lab01()), {"safety": True})
         html = self._render(
@@ -114,3 +191,83 @@ class TestTaDashboardTemplates:
         assert "Pending TA verification" in html
         assert "+10 pts" in html
         assert "Total so far: 50.0 / 100" in html
+
+
+class TestTaDashboardQueries:
+    async def test_batch_loads_row_state_in_constant_queries(self, monkeypatch):
+        submissions = [
+            SimpleNamespace(
+                id=submission_id,
+                total_score=5.0,
+                grade_result={"flags": [f"flag-{submission_id}"]},
+            )
+            for submission_id in (11, 12, 13)
+        ]
+        students = [
+            SimpleNamespace(id=student_id, display_name=f"Student {student_id}")
+            for student_id in (21, 22, 23)
+        ]
+        checkpoint_states = [
+            SimpleNamespace(
+                submission_id=11,
+                checkpoint_id="checkpoint",
+                verified=True,
+            ),
+            SimpleNamespace(
+                submission_id=12,
+                checkpoint_id="checkpoint",
+                verified=False,
+            ),
+        ]
+        passback = SimpleNamespace(submission_id=12, status="pending")
+
+        submissions_result = Mock()
+        submissions_result.all.return_value = list(zip(submissions, students))
+        checkpoints_result = Mock()
+        checkpoints_result.scalars.return_value = checkpoint_states
+        passbacks_result = Mock()
+        passbacks_result.scalars.return_value = [passback]
+        db = SimpleNamespace(
+            execute=AsyncMock(
+                side_effect=[
+                    submissions_result,
+                    checkpoints_result,
+                    passbacks_result,
+                ]
+            )
+        )
+        request = SimpleNamespace(session={"user_id": 1, "role": "ta"})
+        answer_key = {
+            "title": "Test Assignment",
+            "total_points": 15,
+            "sections": [
+                {
+                    "id": "checkpoint",
+                    "title": "Checkpoint",
+                    "type": "checkpoint",
+                    "points": 10,
+                }
+            ],
+        }
+        single_row_builder = AsyncMock(
+            side_effect=AssertionError("dashboard queried per submission")
+        )
+        monkeypatch.setattr(ta, "load_answer_key", lambda _assignment_id: answer_key)
+        monkeypatch.setattr(ta, "_submission_row", single_row_builder)
+        monkeypatch.setattr(
+            ta.templates,
+            "TemplateResponse",
+            lambda _request, _template, context: context,
+        )
+
+        context = await ta.ta_dashboard(request, "test", db)
+
+        assert db.execute.await_count == 3
+        single_row_builder.assert_not_awaited()
+        assert [row["score"]["total"] for row in context["rows"]] == [15.0, 5.0, 5.0]
+        assert [row["passback"] for row in context["rows"]] == [None, passback, None]
+        assert [row["flags"] for row in context["rows"]] == [
+            ["flag-11"],
+            ["flag-12"],
+            ["flag-13"],
+        ]

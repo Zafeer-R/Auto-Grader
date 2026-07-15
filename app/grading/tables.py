@@ -23,9 +23,10 @@ def _parse_cell(raw: str | None) -> float | None:
     if not cleaned:
         return None
     try:
-        return float(cleaned)
+        value = float(cleaned)
     except ValueError:
         return None
+    return value if math.isfinite(value) else None
 
 
 def _check_precision(raw: str, precision: int | None) -> bool:
@@ -57,15 +58,23 @@ def compute_r1_stats(r1_values: dict, r1_def: dict) -> dict:
         if any(v is None for v in parsed) or len(parsed) < 2:
             stats[row_id] = None
             continue
-        row_mean = mean(parsed)
-        row_sd = stdev(parsed)  # sample standard deviation (n-1)
-        row_seom = row_sd / math.sqrt(len(parsed))
-        instrument = row.get("instrument_uncertainty", 0.0)
+        try:
+            row_mean = mean(parsed)
+            row_sd = stdev(parsed)  # sample standard deviation (n-1)
+            row_seom = row_sd / math.sqrt(len(parsed))
+            instrument = row.get("instrument_uncertainty", 0.0)
+            row_error = max(row_seom, instrument)
+        except ArithmeticError:
+            stats[row_id] = None
+            continue
+        if not all(math.isfinite(value) for value in (row_mean, row_sd, row_seom, row_error)):
+            stats[row_id] = None
+            continue
         stats[row_id] = {
             "mean": row_mean,
             "sd": row_sd,
             "seom": row_seom,
-            "error": max(row_seom, instrument),
+            "error": row_error,
         }
     return stats
 
@@ -132,6 +141,12 @@ def _grade_cell(raw: str | None, cell_def: dict, precision: int | None) -> dict:
             "feedback": "No answer provided.",
         }
 
+    if _parse_cell(raw_str) is None:
+        return {
+            "correct": False, "score": 0.0, "max_score": points,
+            "feedback": f"Could not parse '{raw_str}' as a finite number.",
+        }
+
     if "expected" in cell_def:
         result = grade_numerical(
             student_answer=raw_str,
@@ -145,11 +160,6 @@ def _grade_cell(raw: str | None, cell_def: dict, precision: int | None) -> dict:
             "max_score": result.max_score, "feedback": result.feedback,
         }
 
-    if _parse_cell(raw_str) is None:
-        return {
-            "correct": False, "score": 0.0, "max_score": points,
-            "feedback": f"Could not parse '{raw_str}' as a number.",
-        }
     if not _check_precision(raw_str, precision):
         return {
             "correct": False, "score": 0.0, "max_score": points,

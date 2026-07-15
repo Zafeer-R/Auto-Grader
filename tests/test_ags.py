@@ -6,12 +6,15 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jinja2 import Environment, FileSystemLoader
+from jose import jwt
 
+from app.config import settings
+from app.routers.ta import _ags_client
 from app.services.ags import ASSERTION_TYPE, TOKEN_SCOPE, AGSClient, AGSError
 
 TOKEN_URL = "https://canvas.test/login/oauth2/token"
 LINEITEM = "https://canvas.test/api/lti/courses/1/line_items/9?type=none"
-SCORES_URL = "https://canvas.test/api/lti/courses/1/line_items/9/scores"
+SCORES_URL = "https://canvas.test/api/lti/courses/1/line_items/9/scores?type=none"
 
 
 def _test_key_pem() -> str:
@@ -38,6 +41,37 @@ def _client(handler, **kwargs) -> AGSClient:
     )
 
 
+class TestClientAssertion:
+    def test_configured_key_id_is_in_protected_header(self):
+        client = AGSClient(
+            mode="live",
+            token_url=TOKEN_URL,
+            client_id="client-123",
+            private_key_pem=KEY_PEM,
+            key_id="canvas-key-2026",
+        )
+
+        header = jwt.get_unverified_header(client._client_assertion())
+
+        assert header["kid"] == "canvas-key-2026"
+        assert header["alg"] == "RS256"
+
+    def test_blank_key_id_remains_backward_compatible(self):
+        client = AGSClient(
+            mode="live",
+            token_url=TOKEN_URL,
+            client_id="client-123",
+            private_key_pem=KEY_PEM,
+        )
+
+        assert "kid" not in jwt.get_unverified_header(client._client_assertion())
+
+    def test_ta_client_uses_configured_key_id(self, monkeypatch):
+        monkeypatch.setattr(settings, "lti_tool_key_id", "configured-key")
+
+        assert _ags_client().key_id == "configured-key"
+
+
 class TestDryRunAndDisabled:
     async def test_dry_run_returns_payload_without_http(self):
         client = AGSClient(mode="dry_run")
@@ -48,16 +82,48 @@ class TestDryRunAndDisabled:
 
     async def test_disabled_raises(self):
         client = AGSClient(mode="disabled")
-        with pytest.raises(AGSError, match="disabled"):
+        with pytest.raises(AGSError, match="disabled") as exc_info:
             await client.post_score(LINEITEM, "lti-user-1", 94.0, 100.0)
+        assert exc_info.value.attempts == 1
 
     async def test_live_unconfigured_raises(self):
         client = AGSClient(mode="live")
-        with pytest.raises(AGSError, match="not configured"):
+        with pytest.raises(AGSError, match="not configured") as exc_info:
             await client.post_score(LINEITEM, "lti-user-1", 94.0, 100.0)
+        assert exc_info.value.attempts == 1
 
 
 class TestLivePosting:
+    @pytest.mark.parametrize(
+        "private_key_pem",
+        [
+            "not-a-private-key",
+            r"-----BEGIN PRIVATE KEY-----\nnot-real\n-----END PRIVATE KEY-----",
+        ],
+    )
+    async def test_invalid_private_key_fails_without_retry_or_http(self, private_key_pem):
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return httpx.Response(500)
+
+        client = AGSClient(
+            mode="live",
+            token_url=TOKEN_URL,
+            client_id="client-123",
+            private_key_pem=private_key_pem,
+            transport=httpx.MockTransport(handler),
+            max_attempts=3,
+            backoff_base=0,
+        )
+
+        with pytest.raises(AGSError, match="sign.*LTI_TOOL_PRIVATE_KEY") as exc_info:
+            await client.post_score(LINEITEM, "u", 50.0, 100.0)
+
+        assert exc_info.value.attempts == 1
+        assert calls == []
+
     async def test_posts_score_with_token(self):
         calls = []
 
@@ -69,7 +135,7 @@ class TestLivePosting:
                 assert ASSERTION_TYPE.replace(":", "%3A") in body
                 assert TOKEN_SCOPE.replace(":", "%3A").replace("/", "%2F") in body
                 return httpx.Response(200, json={"access_token": "tok-abc"})
-            assert str(request.url) == SCORES_URL  # /scores suffix, query stripped
+            assert str(request.url) == SCORES_URL
             assert request.headers["Authorization"] == "Bearer tok-abc"
             assert request.headers["Content-Type"] == "application/vnd.ims.lis.v1.score+json"
             payload = json.loads(request.content)
@@ -106,8 +172,9 @@ class TestLivePosting:
                 return httpx.Response(200, json={"access_token": "tok"})
             return httpx.Response(503, text="maintenance")
 
-        with pytest.raises(AGSError, match="after 3 attempts.*503"):
+        with pytest.raises(AGSError, match="after 3 attempts.*503") as exc_info:
             await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
+        assert exc_info.value.attempts == 3
 
     async def test_4xx_fails_immediately_without_retry(self):
         score_calls = []
@@ -118,9 +185,27 @@ class TestLivePosting:
             score_calls.append(request)
             return httpx.Response(422, text="unprocessable")
 
-        with pytest.raises(AGSError, match="rejected.*422"):
+        with pytest.raises(AGSError, match="rejected.*422") as exc_info:
             await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
+        assert exc_info.value.attempts == 1
         assert len(score_calls) == 1
+
+    async def test_retry_then_4xx_reports_all_attempts(self):
+        score_calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if str(request.url) == TOKEN_URL:
+                return httpx.Response(200, json={"access_token": "tok"})
+            score_calls.append(request)
+            if len(score_calls) == 1:
+                return httpx.Response(503, text="maintenance")
+            return httpx.Response(422, text="unprocessable")
+
+        with pytest.raises(AGSError, match="rejected.*422") as exc_info:
+            await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
+
+        assert exc_info.value.attempts == 2
+        assert len(score_calls) == 2
 
     async def test_token_5xx_retries_then_raises(self):
         token_calls = []
@@ -130,6 +215,32 @@ class TestLivePosting:
             return httpx.Response(500, text="ise")
 
         with pytest.raises(AGSError, match="after 3 attempts"):
+            await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
+        assert len(token_calls) == 3
+
+    async def test_invalid_json_token_response_retries_then_raises(self):
+        token_calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            token_calls.append(request)
+            return httpx.Response(200, text="<html>not json</html>")
+
+        with pytest.raises(AGSError, match="after 3 attempts.*invalid JSON"):
+            await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
+        assert len(token_calls) == 3
+
+    @pytest.mark.parametrize(
+        "payload",
+        [{}, {"access_token": None}, {"access_token": ""}, {"access_token": "   "}],
+    )
+    async def test_missing_or_empty_access_token_retries_then_raises(self, payload):
+        token_calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            token_calls.append(request)
+            return httpx.Response(200, json=payload)
+
+        with pytest.raises(AGSError, match="after 3 attempts.*non-empty access_token"):
             await _client(handler).post_score(LINEITEM, "u", 50.0, 100.0)
         assert len(token_calls) == 3
 
