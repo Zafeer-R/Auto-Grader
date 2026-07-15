@@ -24,7 +24,7 @@
 - [x] **S04: TA Checkpoint Verification UI** `risk:medium` `depends:[S01]`
   > After this: TA opens dashboard, sees student submissions, toggles checkpoint items, student score updates
 
-- [ ] **S05: AGS Grade Passback to Canvas** `risk:high` `depends:[S02,S04]`
+- [x] **S05: AGS Grade Passback to Canvas** `risk:high` `depends:[S02,S04]` *(live Canvas activation pending UTD dev key)*
   > After this: After grading + checkpoint verification, score posts to Canvas gradebook (held until instructor release)
 
 - [ ] **S06: Lab08 Pre-lab Format** `risk:low` `depends:[S03]`
