@@ -45,11 +45,14 @@ All project tracking lives in `.gsd/`:
 
 ## Current Status
 
-**Milestone M001** (LTI 1.3 + Assignment Rendering + Numerical/Tabular Grading) is in progress:
+**Milestone M001** (LTI 1.3 + Assignment Rendering + Numerical/Tabular Grading) is code-complete:
 
 - **S01** (LTI Launch + Single Question Grading) — complete
 - **S02** (Full Numerical + ID Grading, Q1-Q4) — complete
-- **S03** (Data Table Grading R1/R2/R3) — next
-- **S04** (TA Checkpoint Verification UI) — planned
-- **S05** (AGS Grade Passback to Canvas) — planned
-- **S06** (Lab08 Pre-lab Format) — planned
+- **S03** (Data Table Grading R1/R2/R3) — complete
+- **S04** (TA Checkpoint Verification UI) — complete
+- **S05** (AGS Grade Passback to Canvas) — complete in dry-run; live posting awaits the UTD Canvas developer key
+- **S06** (Lab08 Pre-lab Format) — complete; expected values provisional pending instructor
+
+Human UAT for S03–S06 is deferred — checklists live in `.gsd/phases/01-*/`,
+and `.gsd/phases/01-*/01-AUDIT.md` tracks what blocks archiving the milestone.

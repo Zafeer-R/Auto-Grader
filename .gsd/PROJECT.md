@@ -4,7 +4,7 @@
 
 Auto-grading system for physics lab assignments at UTD, integrated into Canvas LMS as an LTI 1.3 tool. Students complete assignments interactively inside Canvas, submissions are auto-graded for deterministic question types (numerical, identification, data tables), and scores are posted to the gradebook via AGS with manual posting policy.
 
-Currently: FastAPI backend with Jinja2/HTMX frontend, PostgreSQL storage, working grading engine for numerical + identification + report questions (19 questions, 48 pts across Lab01 Q1-Q4). Dev-mode LTI bypass for local development. 33 passing tests.
+Currently: FastAPI backend with Jinja2/HTMX frontend, PostgreSQL storage, working grading engine for numerical + identification + report + data-table questions across Lab01 (full report) and Lab08 (pre-lab), TA checkpoint verification dashboard, AGS passback client (dry-run until Canvas dev key). Dev-mode LTI bypass for local development. 88 passing tests.
 
 ## Core Value
 
@@ -18,22 +18,23 @@ A student launches a physics lab assignment from Canvas, fills in answers, submi
 
 ## Current State
 
-**Working (committed to main):**
+**Working (committed):**
 - FastAPI app with session-based auth and dev-mode LTI bypass
-- Grading engine: numerical (tolerance + precision), identification (case-insensitive match), report (value + uncertainty, partial credit), short answer (deferred to TA/M2)
-- Section-based answer key schema (JSON) with 19 questions across 6 sections for Lab01
-- Assignment rendering with section-grouped layout, checkpoint badges, report two-field inputs
-- Results page with per-section subtotals and TA review indicators
-- TA dashboard with section-based layout
-- PostgreSQL schema via Alembic (users, submissions, answer keys, checkpoints)
-- 33 unit tests all passing
+- Grading engine: numerical (tolerance + precision + sig figs), identification, report (value + uncertainty, partial credit), data tables (per-cell + consistency flags vs student's own R1 data, flag-only), short answer (deferred to TA/M2)
+- Section-based answer key schema (JSON): Lab01 full report (19 questions + R1/R2/R3 tables, 100-pt budget reconciled) and Lab08 pre-lab (values provisional pending instructor)
+- Assignment rendering: section-grouped layout, checkpoint badges, report two-field inputs, editable table grids
+- Results page: per-section subtotals, per-cell ✓/✗ with ⚠ consistency flags, checkpoint status, auto/checkpoint/total split
+- TA dashboard: submissions list, HTMX checkpoint toggles (carry forward on resubmit), consistency-flag surfacing, AGS posting with status chips
+- AGS passback client per LTI 1.3 spec: JWT-assertion token, retry w/ backoff, dry_run/live/disabled modes, per-submission GradePassback tracking
+- PostgreSQL schema via Alembic (users, submissions, answer keys, checkpoints, grade_passbacks)
+- 88 unit tests all passing (DB-free)
 
-**Not yet built:**
-- Data table grading (R1/R2/R3 editable grids) -- next slice
-- TA checkpoint verification UI
-- AGS grade passback to Canvas
-- Lab08 pre-lab format
-- Real LTI 1.3 OIDC/JWKS auth (blocked on UTD Canvas admin)
+**Blocked externally (see 01-AUDIT.md):**
+- Real LTI 1.3 OIDC/JWKS auth + live AGS posting — UTD Canvas admin must issue a developer key; activation is config + launch-claim extraction
+- Instructor confirmations: Lab01 table nominals, Lab08 given values, exact sig-fig rules, measurement-field points (D006)
+
+**Not yet done:**
+- Human UAT for S03–S06 (deferred by user; checklists in .gsd/phases/01-*/0?-0?-UAT.md)
 
 ## Architecture / Key Patterns
 
