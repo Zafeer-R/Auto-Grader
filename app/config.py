@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings
 
 
@@ -16,7 +18,7 @@ class Settings(BaseSettings):
     # AGS grade passback
     # dry_run records what would post without calling Canvas (dev default);
     # live requires lti_token_url, lti_client_id, and lti_tool_private_key.
-    ags_mode: str = "dry_run"  # live | dry_run | disabled
+    ags_mode: Literal["live", "dry_run", "disabled"] = "dry_run"
     lti_token_url: str = ""
     lti_tool_private_key: str = ""  # PEM, RS256
     lti_tool_key_id: str = ""  # JWT kid; required by Canvas JWK-set registrations

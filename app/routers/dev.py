@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.launch_context import record_launch_context
 from app.models.user import User
 
 router = APIRouter(prefix="/dev", tags=["dev"])
@@ -57,12 +58,15 @@ async def dev_launch(
         await db.refresh(user)
 
     # Store session info
-    request.session["user_id"] = user.id
-    request.session["role"] = user.role
-    request.session["assignment_id"] = assignment_id
-    # Fake AGS line item so the passback flow is demoable in dev (dry_run mode)
-    request.session["ags_lineitem"] = (
+    lineitem_url = (
         f"https://canvas.test/api/lti/courses/dev-course-001/line_items/{assignment_id}"
     )
+    record_launch_context(
+        request.session,
+        user_id=user.id,
+        assignment_id=assignment_id,
+        ags_lineitem=lineitem_url,
+    )
+    request.session["role"] = user.role
 
     return RedirectResponse(url=f"/assignment/{assignment_id}", status_code=303)

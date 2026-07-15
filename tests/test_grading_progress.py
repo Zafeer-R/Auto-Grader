@@ -40,6 +40,7 @@ async def test_ta_post_grade_threads_assignment_grading_progress(
     submission = SimpleNamespace(
         id=5,
         user_id=9,
+        assignment_id="lab01",
         total_score=22.0,
         max_score=30.0,
     )
@@ -60,7 +61,10 @@ async def test_ta_post_grade_threads_assignment_grading_progress(
         commit=AsyncMock(),
     )
     request = SimpleNamespace(
-        session={"ags_lineitem": "https://canvas.test/line_items/17"}
+        session={
+            "assignment_id": "lab01",
+            "ags_lineitem": "https://canvas.test/line_items/17",
+        }
     )
     client = SimpleNamespace(
         post_score=AsyncMock(

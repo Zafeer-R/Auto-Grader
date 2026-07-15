@@ -3,7 +3,7 @@ import json
 import pytest
 
 from app.grading.engine import grade_question, grade_report, grade_short_answer, grade_submission
-from app.grading.numerical import grade_numerical
+from app.grading.numerical import decimal_places, grade_numerical
 from app.grading.tables import compute_r1_stats, compute_r3_derived, grade_data_tables
 
 
@@ -60,6 +60,46 @@ class TestGradeNumerical:
     def test_precision_too_many_decimals_still_passes(self):
         r = grade_numerical("3.140", expected=3.14, tolerance=0.01, max_score=3, precision=2)
         assert r.correct is True
+
+    @pytest.mark.parametrize(
+        ("answer", "expected_places"),
+        [
+            ("5.080", 3),
+            ("5.080e0", 3),
+            ("5.080e1", 2),
+            ("5080e-3", 3),
+            ("1e-3", 3),
+            ("0.e00", 0),
+        ],
+    )
+    def test_decimal_places_accounts_for_scientific_exponent(
+        self, answer, expected_places
+    ):
+        assert decimal_places(answer) == expected_places
+
+    @pytest.mark.parametrize("answer", ["5.080e0", "5080e-3", "1e-3"])
+    def test_equivalent_scientific_notation_meets_precision(self, answer):
+        expected = float(answer)
+        r = grade_numerical(
+            answer,
+            expected=expected,
+            tolerance=0.0001,
+            max_score=3,
+            precision=3,
+        )
+        assert r.correct is True
+
+    @pytest.mark.parametrize("answer", ["5.08e0", "0.e00"])
+    def test_scientific_notation_cannot_overstate_precision(self, answer):
+        r = grade_numerical(
+            answer,
+            expected=float(answer),
+            tolerance=0.0001,
+            max_score=3,
+            precision=3,
+        )
+        assert r.correct is False
+        assert "decimal places" in r.feedback
 
 
 class TestGradeQuestion:
@@ -307,6 +347,17 @@ class TestR1Stats:
         stats = compute_r1_stats({**R1_ANSWERS, "mass": {}}, tables["r1"])
         assert compute_r3_derived(stats) is None
 
+    def test_r3_derivation_rejects_non_finite_propagation(self):
+        tables = _lab01_tables()
+        extreme = {
+            row_id: {column_id: "1e200" for column_id in values}
+            for row_id, values in R1_ANSWERS.items()
+        }
+        stats = compute_r1_stats(extreme, tables["r1"])
+
+        assert all(row is not None for row in stats.values())
+        assert compute_r3_derived(stats) is None
+
 
 class TestGradeDataTables:
     def test_consistent_submission_full_score_no_flags(self):
@@ -338,6 +389,38 @@ class TestGradeDataTables:
         assert cell["correct"] is False
         assert "decimal places" in cell["feedback"]
         assert result["total_score"] == pytest.approx(24.0 - 0.75)
+
+    def test_scientific_notation_cannot_bypass_cell_precision(self):
+        tables = _lab01_tables()
+        r2 = {
+            **R2_ANSWERS,
+            "length": {**R2_ANSWERS["length"], "sd": "0.e00"},
+        }
+        result = grade_data_tables(
+            tables,
+            {"r1": R1_ANSWERS, "r2": r2, "r3": R3_ANSWERS},
+        )
+        cell = result["tables"]["r2"]["cells"]["length.sd"]
+
+        assert cell["correct"] is False
+        assert cell["score"] == 0.0
+        assert "decimal places" in cell["feedback"]
+
+    def test_non_finite_r3_propagation_skips_consistency(self):
+        tables = _lab01_tables()
+        extreme = {
+            row_id: {column_id: "1e200" for column_id in values}
+            for row_id, values in R1_ANSWERS.items()
+        }
+
+        result = grade_data_tables(
+            tables,
+            {"r1": extreme, "r2": R2_ANSWERS, "r3": R3_ANSWERS},
+        )
+
+        r3 = result["tables"]["r3"]
+        assert any("could not verify" in flag for flag in r3["flags"])
+        assert all(cell["consistent"] is None for cell in r3["cells"].values())
 
     def test_nominal_expected_enforced_on_mean(self):
         tables = _lab01_tables()

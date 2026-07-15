@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.grading.checkpoints import checkpoint_sections, effective_score
+from app.launch_context import get_launch_context
 from app.models.checkpoint import (
     CHECKPOINT_STATE_UNIQUE_CONSTRAINT,
     CheckpointState,
@@ -116,8 +117,9 @@ async def _post_grade(
 
     student = await db.get(User, submission.user_id)
     passback.lti_user_id = student.lti_user_id
-    passback.lineitem_url = (
-        passback.lineitem_url or request.session.get("ags_lineitem", "")
+    launch_context = get_launch_context(request.session, submission.assignment_id)
+    passback.lineitem_url = passback.lineitem_url or (
+        launch_context["ags_lineitem"] if launch_context is not None else ""
     )
     passback.score_given = score["total"]
     passback.score_maximum = answer_key.get("total_points", submission.max_score or 0)

@@ -7,8 +7,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jinja2 import Environment, FileSystemLoader
 from jose import jwt
+from pydantic import ValidationError
 
-from app.config import settings
+from app.config import Settings, settings
 from app.routers.ta import _ags_client
 from app.services.ags import ASSERTION_TYPE, TOKEN_SCOPE, AGSClient, AGSError
 
@@ -39,6 +40,17 @@ def _client(handler, **kwargs) -> AGSClient:
         backoff_base=0,  # no real sleeping in tests
         **kwargs,
     )
+
+
+class TestAGSModeConfiguration:
+    @pytest.mark.parametrize("mode", ["live", "dry_run", "disabled"])
+    def test_settings_accepts_exact_supported_modes(self, mode):
+        assert Settings(ags_mode=mode, _env_file=None).ags_mode == mode
+
+    @pytest.mark.parametrize("mode", ["disable", "DRY_RUN", "dry-run"])
+    def test_settings_rejects_invalid_modes(self, mode):
+        with pytest.raises(ValidationError):
+            Settings(ags_mode=mode, _env_file=None)
 
 
 class TestClientAssertion:
@@ -91,6 +103,28 @@ class TestDryRunAndDisabled:
         with pytest.raises(AGSError, match="not configured") as exc_info:
             await client.post_score(LINEITEM, "lti-user-1", 94.0, 100.0)
         assert exc_info.value.attempts == 1
+
+    @pytest.mark.parametrize("mode", ["disable", "DRY_RUN", "dry-run"])
+    async def test_invalid_mode_fails_without_http(self, mode):
+        calls = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            return httpx.Response(200, json={"access_token": "unexpected"})
+
+        client = AGSClient(
+            mode=mode,
+            token_url=TOKEN_URL,
+            client_id="client-123",
+            private_key_pem=KEY_PEM,
+            transport=httpx.MockTransport(handler),
+            backoff_base=0,
+        )
+
+        with pytest.raises(AGSError, match="Unsupported AGS mode"):
+            await client.post_score(LINEITEM, "lti-user-1", 94.0, 100.0)
+
+        assert calls == []
 
 
 class TestLivePosting:
