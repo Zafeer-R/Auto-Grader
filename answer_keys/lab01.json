@@ -42,11 +42,35 @@
       "instructions": "Record measurement uncertainties"
     },
     {
+      "id": "r1",
+      "title": "Table R1",
+      "type": "data_table",
+      "table": "r1",
+      "points": 0,
+      "instructions": "Record your 5 trials of raw measurements. Your TA checks these via Check Box #2."
+    },
+    {
       "id": "checkpoint2",
       "title": "Check Box #2",
       "type": "checkpoint",
       "points": 10,
       "instructions": "Data sets checked."
+    },
+    {
+      "id": "r2",
+      "title": "Analyses — Table R2",
+      "type": "data_table",
+      "table": "r2",
+      "points": 12,
+      "instructions": "Express answers to 0.001 cm and 0.01 g"
+    },
+    {
+      "id": "r3",
+      "title": "Analyses — Table R3",
+      "type": "data_table",
+      "table": "r3",
+      "points": 12,
+      "instructions": "Express answers to 0.01 cm³ and 0.01 g/cm³"
     },
     {
       "id": "q4",
@@ -55,6 +79,123 @@
       "instructions": null
     }
   ],
+  "tables": {
+    "r1": {
+      "title": "Table R1",
+      "kind": "raw",
+      "points": 0,
+      "columns": [
+        {"id": "1", "label": "1"},
+        {"id": "2", "label": "2"},
+        {"id": "3", "label": "3"},
+        {"id": "4", "label": "4"},
+        {"id": "5", "label": "5"}
+      ],
+      "row_header": "Trial",
+      "rows": [
+        {"id": "length", "label": "Length (cm)", "unit": "cm", "instrument_uncertainty": 0.005},
+        {"id": "width", "label": "Width (cm)", "unit": "cm", "instrument_uncertainty": 0.005},
+        {"id": "thickness", "label": "Thickness (cm)", "unit": "cm", "instrument_uncertainty": 0.005},
+        {"id": "mass", "label": "Mass (g)", "unit": "g", "instrument_uncertainty": 0.01}
+      ]
+    },
+    "r2": {
+      "title": "Table R2",
+      "kind": "derived",
+      "consistency": "r1_stats",
+      "points": 12,
+      "columns": [
+        {"id": "mean", "label": "Mean"},
+        {"id": "sd", "label": "SD"},
+        {"id": "seom", "label": "SEOM"},
+        {"id": "error", "label": "Error"}
+      ],
+      "row_header": "Measurements",
+      "rows": [
+        {
+          "id": "length",
+          "label": "Length (cm)",
+          "precision": 3,
+          "cells": {
+            "mean": {"expected": 5.08, "tolerance": 1.0, "points": 0.75},
+            "sd": {"points": 0.75},
+            "seom": {"points": 0.75},
+            "error": {"points": 0.75}
+          }
+        },
+        {
+          "id": "width",
+          "label": "Width (cm)",
+          "precision": 3,
+          "cells": {
+            "mean": {"expected": 2.54, "tolerance": 1.0, "points": 0.75},
+            "sd": {"points": 0.75},
+            "seom": {"points": 0.75},
+            "error": {"points": 0.75}
+          }
+        },
+        {
+          "id": "thickness",
+          "label": "Thickness (cm)",
+          "precision": 3,
+          "cells": {
+            "mean": {"expected": 0.64, "tolerance": 0.5, "points": 0.75},
+            "sd": {"points": 0.75},
+            "seom": {"points": 0.75},
+            "error": {"points": 0.75}
+          }
+        },
+        {
+          "id": "mass",
+          "label": "Mass (g)",
+          "precision": 2,
+          "cells": {
+            "mean": {"expected": 22.3, "tolerance": 5.0, "points": 0.75},
+            "sd": {"points": 0.75},
+            "seom": {"points": 0.75},
+            "error": {"points": 0.75}
+          }
+        }
+      ]
+    },
+    "r3": {
+      "title": "Table R3",
+      "kind": "derived",
+      "consistency": "volume_density",
+      "points": 12,
+      "columns": [
+        {"id": "mean", "label": "Mean"},
+        {"id": "highest", "label": "Highest"},
+        {"id": "lowest", "label": "Lowest"},
+        {"id": "uncertainty", "label": "Uncertainty"}
+      ],
+      "row_header": "Quantities",
+      "rows": [
+        {
+          "id": "volume",
+          "label": "Volume (cm³)",
+          "precision": 2,
+          "cells": {
+            "mean": {"expected": 8.26, "tolerance": 2.5, "points": 1.5},
+            "highest": {"points": 1.5},
+            "lowest": {"points": 1.5},
+            "uncertainty": {"points": 1.5}
+          }
+        },
+        {
+          "id": "density",
+          "label": "Density (g/cm³)",
+          "precision": 2,
+          "cells": {
+            "mean": {"expected": 2.7, "tolerance": 0.35, "points": 1.5},
+            "highest": {"points": 1.5},
+            "lowest": {"points": 1.5},
+            "uncertainty": {"points": 1.5}
+          }
+        }
+      ]
+    }
+  },
   "questions": {
     "q1_1": {
       "type": "identification",
@@ -108,7 +249,7 @@
       "label": "Uncertainty of balance",
       "expected": 0.01,
       "tolerance": 0.005,
-      "points": 1,
+      "points": 0,
       "unit": "g"
     },
     "meas_calipers": {
@@ -117,7 +258,7 @@
       "label": "Uncertainty of calipers",
       "expected": 0.005,
       "tolerance": 0.0025,
-      "points": 1,
+      "points": 0,
       "unit": "cm"
     },
     "q2_1": {

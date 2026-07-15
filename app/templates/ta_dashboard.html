@@ -23,6 +23,33 @@
             <span class="checkpoint-badge">TA Checkpoint</span>
             <p style="color: #6c757d; margin-top: 0.5rem; margin-bottom: 0;">{{ section.instructions }}</p>
         </div>
+        {% elif section.type == "data_table" %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>{{ section.table.row_header or "" }}</th>
+                    {% for col in section.table.columns %}
+                    <th>{{ col.label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in section.table.rows %}
+                <tr>
+                    <th>{{ row.label }}</th>
+                    {% for col in section.table.columns %}
+                    <td style="color: #adb5bd;">
+                        {% set cell = row.cells.get(col.id) if row.cells is defined else None %}
+                        {% if cell and cell.expected is defined %}{{ cell.expected }} &plusmn; {{ cell.tolerance }}{% else %}&mdash;{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p style="color: #6c757d; font-size: 0.85rem; margin: 0.5rem 0 0;">
+            Cells show nominal expected values; blank cells grade for precision + consistency with the student's R1 data.
+        </p>
         {% else %}
             {% for q_id, q in section.questions.items() %}
             <div class="question-block">

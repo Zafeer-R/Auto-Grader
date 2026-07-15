@@ -1,4 +1,5 @@
 from app.grading.numerical import GradeResult, grade_numerical
+from app.grading.tables import grade_data_tables
 
 
 def grade_question(question_def: dict, student_answer: str | dict) -> GradeResult:
@@ -156,8 +157,16 @@ def grade_submission(answers: dict[str, str | dict], answer_key: dict) -> dict:
         total_score += result.score
         total_max += result.max_score
 
+    tables_result = None
+    if answer_key.get("tables"):
+        tables_result = grade_data_tables(answer_key["tables"], answers)
+        total_score += tables_result["total_score"]
+        total_max += tables_result["total_max"]
+
     return {
         "questions": results,
+        "tables": tables_result["tables"] if tables_result else {},
+        "flags": tables_result["flags"] if tables_result else [],
         "total_score": total_score,
         "total_max": total_max,
     }

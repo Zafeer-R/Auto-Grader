@@ -20,6 +20,50 @@
             </h2>
         </div>
         <div class="section-body">
+            {% if section.type is defined and section.type == "data_table" %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ section.table.row_header or "" }}</th>
+                        {% for col in section.table.columns %}
+                        <th>{{ col.label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in section.table.rows %}
+                    <tr>
+                        <th>{{ row.label }}</th>
+                        {% for col in section.table.columns %}
+                        {% set cell = section.table_result.cells.get(row.id ~ "." ~ col.id) %}
+                        <td>
+                            {% if cell %}
+                            <span class="cell-value">{{ cell.value if cell.value else "—" }}</span>
+                            {% if section.table.kind == "raw" %}
+                                {% if not cell.correct %}<span class="result-incorrect" title="{{ cell.feedback }}">&#10007;</span>{% endif %}
+                            {% elif cell.correct %}
+                            <span class="result-correct" title="{{ cell.feedback }}">&#10003;</span>
+                            {% else %}
+                            <span class="result-incorrect" title="{{ cell.feedback }}">&#10007;</span>
+                            {% endif %}
+                            {% if cell.consistent is false %}
+                            <span class="flag-badge" title="Does not match your Table R1 data — flagged for TA review">&#9888;</span>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if section.table_result.flags %}
+            <div class="consistency-flags">
+                {% for flag in section.table_result.flags %}
+                <div class="flag-item">&#9888; {{ flag }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endif %}
             {% for q_id, q_result in section.questions.items() %}
             <div class="question-block">
                 <span class="question-label">
