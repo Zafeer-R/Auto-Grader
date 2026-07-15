@@ -1,22 +1,82 @@
-"""TA routes: submissions dashboard and checkpoint verification."""
+"""TA routes: submissions dashboard, checkpoint verification, grade passback."""
 
 import datetime
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.grading.checkpoints import checkpoint_sections, effective_score
 from app.models.checkpoint import CheckpointState
+from app.models.passback import GradePassback
 from app.models.submission import Submission
 from app.models.user import User
 from app.routers.grading import _build_section_questions, load_answer_key
+from app.services.ags import AGSClient, AGSError
 
 router = APIRouter(prefix="/ta", tags=["ta"])
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _ags_client() -> AGSClient:
+    return AGSClient(
+        mode=settings.ags_mode,
+        token_url=settings.lti_token_url,
+        client_id=settings.lti_client_id,
+        private_key_pem=settings.lti_tool_private_key,
+    )
+
+
+async def _post_grade(
+    db: AsyncSession, request: Request, submission: Submission, answer_key: dict
+) -> GradePassback:
+    """Post a submission's effective score via AGS, persisting the outcome."""
+    result = await db.execute(
+        select(CheckpointState).where(CheckpointState.submission_id == submission.id)
+    )
+    states = {cs.checkpoint_id: cs.verified for cs in result.scalars()}
+    score = effective_score(
+        submission.total_score or 0.0, checkpoint_sections(answer_key), states
+    )
+
+    result = await db.execute(
+        select(GradePassback).where(GradePassback.submission_id == submission.id)
+    )
+    passback = result.scalar_one_or_none()
+    if passback is None:
+        passback = GradePassback(submission_id=submission.id)
+        db.add(passback)
+
+    student = await db.get(User, submission.user_id)
+    passback.lti_user_id = student.lti_user_id
+    passback.lineitem_url = (
+        passback.lineitem_url or request.session.get("ags_lineitem", "")
+    )
+    passback.score_given = score["total"]
+    passback.score_maximum = answer_key.get("total_points", submission.max_score or 0)
+
+    try:
+        outcome = await _ags_client().post_score(
+            lineitem_url=passback.lineitem_url,
+            lti_user_id=passback.lti_user_id,
+            score_given=passback.score_given,
+            score_maximum=passback.score_maximum,
+        )
+        passback.status = outcome["status"]
+        passback.attempts += max(outcome["attempts"], 1)
+        passback.last_error = ""
+        passback.posted_at = datetime.datetime.now(datetime.timezone.utc)
+    except AGSError as exc:
+        passback.status = "failed"
+        passback.attempts += 1
+        passback.last_error = str(exc)[:500]
+
+    await db.commit()
+    return passback
 
 
 def _require_ta(request: Request) -> str | None:
@@ -40,12 +100,18 @@ async def _submission_row(
     checkpoints = checkpoint_sections(answer_key)
     score = effective_score(submission.total_score or 0.0, checkpoints, states)
 
+    result = await db.execute(
+        select(GradePassback).where(GradePassback.submission_id == submission.id)
+    )
+    passback = result.scalar_one_or_none()
+
     flags = (submission.grade_result or {}).get("flags", [])
     return {
         "submission": submission,
         "student": student,
         "score": score,
         "flags": flags,
+        "passback": passback,
         "grade_max": answer_key.get("total_points", 0),
     }
 
@@ -138,6 +204,64 @@ async def toggle_checkpoint(
     student = await db.get(User, submission.user_id)
     row = await _submission_row(db, submission, student, answer_key)
     return templates.TemplateResponse(request, "_ta_row.html", {"row": row})
+
+
+@router.post("/submission/{submission_id}/post-grade", response_class=HTMLResponse)
+async def post_grade(
+    request: Request, submission_id: int, db: AsyncSession = Depends(get_db)
+):
+    """Post one submission's effective score via AGS; returns the row fragment."""
+    error = _require_ta(request)
+    if error:
+        return templates.TemplateResponse(request, "error.html", {"message": error})
+
+    submission = await db.get(Submission, submission_id)
+    if not submission:
+        return templates.TemplateResponse(request, "error.html", {
+            "message": f"Submission {submission_id} not found.",
+        })
+
+    answer_key = load_answer_key(submission.assignment_id)
+    if not answer_key:
+        return templates.TemplateResponse(request, "error.html", {
+            "message": f"No answer key found for '{submission.assignment_id}'.",
+        })
+
+    await _post_grade(db, request, submission, answer_key)
+
+    student = await db.get(User, submission.user_id)
+    row = await _submission_row(db, submission, student, answer_key)
+    return templates.TemplateResponse(request, "_ta_row.html", {"row": row})
+
+
+@router.post("/assignment/{assignment_id}/post-all")
+async def post_all_grades(
+    request: Request, assignment_id: str, db: AsyncSession = Depends(get_db)
+):
+    """Post the latest submission per student, then reload the dashboard."""
+    error = _require_ta(request)
+    if error:
+        return templates.TemplateResponse(request, "error.html", {"message": error})
+
+    answer_key = load_answer_key(assignment_id)
+    if not answer_key:
+        return templates.TemplateResponse(request, "error.html", {
+            "message": f"No answer key found for assignment '{assignment_id}'.",
+        })
+
+    result = await db.execute(
+        select(Submission)
+        .where(Submission.assignment_id == assignment_id)
+        .order_by(Submission.id.desc())
+    )
+    latest_per_student: dict[int, Submission] = {}
+    for submission in result.scalars():
+        latest_per_student.setdefault(submission.user_id, submission)
+
+    for submission in latest_per_student.values():
+        await _post_grade(db, request, submission, answer_key)
+
+    return RedirectResponse(url=f"/ta/assignment/{assignment_id}", status_code=303)
 
 
 @router.get("/assignment/{assignment_id}/structure", response_class=HTMLResponse)

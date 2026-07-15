@@ -60,5 +60,9 @@ async def dev_launch(
     request.session["user_id"] = user.id
     request.session["role"] = user.role
     request.session["assignment_id"] = assignment_id
+    # Fake AGS line item so the passback flow is demoable in dev (dry_run mode)
+    request.session["ags_lineitem"] = (
+        f"https://canvas.test/api/lti/courses/dev-course-001/line_items/{assignment_id}"
+    )
 
     return RedirectResponse(url=f"/assignment/{assignment_id}", status_code=303)
