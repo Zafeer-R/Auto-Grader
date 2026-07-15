@@ -41,15 +41,19 @@ def _build_section_questions(answer_key: dict) -> list[dict]:
             q_id: q_def for q_id, q_def in questions.items()
             if q_def.get("section") == sec_id
         }
-        if sec_questions or section.get("type") == "checkpoint":
-            result.append({
+        if sec_questions or section.get("type") in ("checkpoint", "data_table"):
+            entry = {
                 "id": sec_id,
                 "title": section["title"],
                 "points": section.get("points", 0),
                 "instructions": section.get("instructions"),
                 "type": section.get("type"),
                 "questions": sec_questions,
-            })
+            }
+            if section.get("type") == "data_table":
+                entry["table_id"] = section.get("table")
+                entry["table"] = answer_key.get("tables", {}).get(section.get("table"))
+            result.append(entry)
     return result
 
 
@@ -120,6 +124,16 @@ async def submit_assignment(
         else:
             clean_answers[q_id] = form_data.get(f"q_{q_id}", "")
 
+    # Collect data table cells (inputs named t_{table}_{row}_{col})
+    for t_id, t_def in answer_key.get("tables", {}).items():
+        clean_answers[t_id] = {
+            row["id"]: {
+                col["id"]: form_data.get(f"t_{t_id}_{row['id']}_{col['id']}", "")
+                for col in t_def.get("columns", [])
+            }
+            for row in t_def.get("rows", [])
+        }
+
     result = grade_submission(clean_answers, answer_key)
 
     # Store submission
@@ -154,6 +168,25 @@ def _build_section_results(answer_key: dict, result: dict) -> list[dict]:
     output = []
     for section in sections:
         sec_id = section["id"]
+
+        if section.get("type") == "data_table":
+            table_id = section.get("table")
+            table_result = result.get("tables", {}).get(table_id)
+            table_def = answer_key.get("tables", {}).get(table_id)
+            if table_result and table_def:
+                output.append({
+                    "title": section["title"],
+                    "points": section.get("points", 0),
+                    "score": table_result["score"],
+                    "max_score": table_result["max_score"],
+                    "type": "data_table",
+                    "table_id": table_id,
+                    "table": table_def,
+                    "table_result": table_result,
+                    "questions": {},
+                })
+            continue
+
         sec_questions = {}
         for q_id, q_def in answer_key["questions"].items():
             if q_def.get("section") == sec_id and q_id in result["questions"]:

@@ -28,12 +28,36 @@
                     Your TA will verify this item.
                 </p>
             </div>
+            {% elif section.type == "data_table" %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ section.table.row_header or "" }}</th>
+                        {% for col in section.table.columns %}
+                        <th>{{ col.label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in section.table.rows %}
+                    <tr>
+                        <th>{{ row.label }}</th>
+                        {% for col in section.table.columns %}
+                        <td>
+                            <input type="text" inputmode="decimal"
+                                   name="t_{{ section.table_id }}_{{ row.id }}_{{ col.id }}">
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
                 {% for q_id, q in section.questions.items() %}
                 <div class="question-block">
                     <label class="question-label">
                         {{ q.label }}
-                        <span class="points-badge">{{ q.points }} pts</span>
+                        {% if q.points %}<span class="points-badge">{{ q.points }} pts</span>{% endif %}
                         {% if q.grading is defined and q.grading == "deferred_m2" %}
                         <span class="deferred-badge">TA graded</span>
                         {% endif %}
