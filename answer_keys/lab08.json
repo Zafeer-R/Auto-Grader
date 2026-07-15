@@ -1,0 +1,164 @@
+{
+  "assignment_id": "lab08",
+  "title": "Lab 8: Rotational Motion — Pre-lab",
+  "total_points": 30,
+  "_provisional": "Expected values are a self-consistent placeholder problem (uniform disk M=2.00 kg, R=0.100 m; hanging mass m=0.500 kg falling h=1.00 m; g=9.80 m/s²; part 3: identical disk dropped onto the spinning disk). The pre-lab sheet contains no given values — instructor must confirm or replace these with the real problem's numbers before use.",
+  "sections": [
+    {
+      "id": "part1",
+      "title": "Question (1): Show the relations",
+      "points": 8,
+      "instructions": "Please show the relations (use as many paper sheets as you need). Your TA will grade your derivations."
+    },
+    {
+      "id": "part2",
+      "title": "Question (2): Compute the quantities",
+      "points": 16,
+      "instructions": "A uniform disk (M = 2.00 kg, R = 0.100 m) is free to rotate about its axle. A string wrapped around its rim supports a hanging mass m = 0.500 kg, released from rest and falling h = 1.00 m (g = 9.80 m/s²). Express answers to 3 sig. figs."
+    },
+    {
+      "id": "part3",
+      "title": "Question (3): Compute the quantities",
+      "points": 6,
+      "instructions": "The disk is now spinning at the angular velocity it reached in Question (2) when an identical disk is dropped onto it and they rotate together. Express answers to 3 sig. figs."
+    }
+  ],
+  "questions": {
+    "q1_1": {
+      "type": "short_answer",
+      "section": "part1",
+      "label": "1. Relation between the hanging mass's acceleration and the disk's angular acceleration",
+      "points": 4,
+      "grading": "deferred_m2",
+      "hint": "Show your work on paper or summarize it here — graded by your TA"
+    },
+    "q1_2": {
+      "type": "short_answer",
+      "section": "part1",
+      "label": "2. Relation between torque, moment of inertia, and angular acceleration",
+      "points": 4,
+      "grading": "deferred_m2",
+      "hint": "Show your work on paper or summarize it here — graded by your TA"
+    },
+    "q2_a": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Hanging mass's acceleration a",
+      "expected": 3.2667,
+      "tolerance": 0.05,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "m/s²"
+    },
+    "q2_t": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "String tension T",
+      "expected": 3.2667,
+      "tolerance": 0.05,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "N"
+    },
+    "q2_torque": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Torque exerted on disk τ",
+      "expected": 0.32667,
+      "tolerance": 0.005,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "N·m"
+    },
+    "q2_i": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Disk's moment of inertia I",
+      "expected": 0.0100,
+      "tolerance": 0.0002,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "kg·m²"
+    },
+    "q2_u": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Hanging mass's initial potential energy U",
+      "expected": 4.90,
+      "tolerance": 0.05,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "J"
+    },
+    "q2_v": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Hanging mass's final velocity v_h",
+      "expected": 2.5560,
+      "tolerance": 0.03,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "m/s"
+    },
+    "q2_kh": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Hanging mass's final kinetic energy K_h",
+      "expected": 1.6333,
+      "tolerance": 0.02,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "J"
+    },
+    "q2_kd": {
+      "type": "numerical",
+      "section": "part2",
+      "label": "Disk's final rotational kinetic energy K_d",
+      "expected": 3.2667,
+      "tolerance": 0.05,
+      "sig_figs": 3,
+      "points": 2,
+      "unit": "J"
+    },
+    "q3_l": {
+      "type": "numerical",
+      "section": "part3",
+      "label": "Initial angular momentum L_i",
+      "expected": 0.25560,
+      "tolerance": 0.004,
+      "sig_figs": 3,
+      "points": 1.5,
+      "unit": "kg·m²/s"
+    },
+    "q3_ki": {
+      "type": "numerical",
+      "section": "part3",
+      "label": "Initial rotational kinetic energy K_i",
+      "expected": 3.2667,
+      "tolerance": 0.05,
+      "sig_figs": 3,
+      "points": 1.5,
+      "unit": "J"
+    },
+    "q3_wf": {
+      "type": "numerical",
+      "section": "part3",
+      "label": "Final angular velocity ω_f",
+      "expected": 12.780,
+      "tolerance": 0.2,
+      "sig_figs": 3,
+      "points": 1.5,
+      "unit": "rad/s"
+    },
+    "q3_kf": {
+      "type": "numerical",
+      "section": "part3",
+      "label": "Final rotational kinetic energy K_f",
+      "expected": 1.6333,
+      "tolerance": 0.02,
+      "sig_figs": 3,
+      "points": 1.5,
+      "unit": "J"
+    }
+  }
+}

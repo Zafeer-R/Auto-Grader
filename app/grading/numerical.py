@@ -9,12 +9,31 @@ class GradeResult:
     feedback: str
 
 
+def count_sig_figs(answer: str) -> int:
+    """Count significant figures in a numeric string.
+
+    Leading zeros never count; trailing zeros after a decimal point count.
+    Integer trailing zeros are ambiguous ("490" could be 2 or 3 sig figs) —
+    counted as significant, the permissive reading for grading.
+    """
+    cleaned = answer.strip().lstrip("+-")
+    if "e" in cleaned.lower():
+        cleaned = cleaned.lower().split("e")[0]
+    digits = cleaned.replace(".", "")
+    stripped = digits.lstrip("0")
+    if not stripped:
+        # All zeros ("0", "0.00"): every written zero after the first counts
+        return max(len(digits) - 1, 1) if digits else 0
+    return len(stripped)
+
+
 def grade_numerical(
     student_answer: str,
     expected: float,
     tolerance: float,
     max_score: float,
     precision: int | None = None,
+    sig_figs: int | None = None,
 ) -> GradeResult:
     """Grade a numerical answer against an expected value with tolerance.
 
@@ -25,6 +44,8 @@ def grade_numerical(
         max_score: Maximum points for this question.
         precision: Required decimal places. If set, the answer must have exactly this many
                    decimal places (e.g. precision=2 means "to 0.01").
+        sig_figs: Required significant figures. If set, the answer must carry at
+                  least this many (extra precision is accepted).
     """
     cleaned = student_answer.strip()
     if not cleaned:
@@ -60,6 +81,15 @@ def grade_numerical(
                 max_score=max_score,
                 feedback=f"Answer must be expressed to {precision} decimal places.",
             )
+
+    # Check significant figures if required
+    if sig_figs is not None and count_sig_figs(cleaned) < sig_figs:
+        return GradeResult(
+            correct=False,
+            score=0.0,
+            max_score=max_score,
+            feedback=f"Answer must be expressed to {sig_figs} significant figures.",
+        )
 
     # Check value within tolerance
     if abs(value - expected) <= tolerance:

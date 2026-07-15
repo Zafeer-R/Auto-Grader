@@ -18,6 +18,7 @@ def grade_question(question_def: dict, student_answer: str | dict) -> GradeResul
             tolerance=question_def.get("tolerance", 0.01),
             max_score=question_def["points"],
             precision=question_def.get("precision"),
+            sig_figs=question_def.get("sig_figs"),
         )
 
     if q_type == "identification":
