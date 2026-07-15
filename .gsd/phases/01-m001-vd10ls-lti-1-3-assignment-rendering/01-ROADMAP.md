@@ -27,7 +27,7 @@
 - [x] **S05: AGS Grade Passback to Canvas** `risk:high` `depends:[S02,S04]` *(live Canvas activation pending UTD dev key)*
   > After this: After grading + checkpoint verification, score posts to Canvas gradebook (held until instructor release)
 
-- [ ] **S06: Lab08 Pre-lab Format** `risk:low` `depends:[S03]`
+- [x] **S06: Lab08 Pre-lab Format** `risk:low` `depends:[S03]` *(expected values provisional pending instructor)*
   > After this: Student launches Lab08 pre-lab, fills in answers, submits, gets scored feedback using same engine
 
 ## Boundary Map
