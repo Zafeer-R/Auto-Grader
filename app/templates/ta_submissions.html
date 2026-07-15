@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}TA Dashboard - {{ title }}{% endblock %}
+
+{% block content %}
+<div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+    <strong>{{ role|upper }} View</strong> — Toggle checkpoint items to award credit. Scores update immediately.
+</div>
+
+<h1>{{ title }}</h1>
+<p style="color: #6c757d; margin-bottom: 1.5rem;">
+    {{ rows|length }} submission{{ "s" if rows|length != 1 }} · ⚠ marks consistency flags for review
+</p>
+
+{% if rows %}
+<table class="data-table submissions-table">
+    <thead>
+        <tr>
+            <th>Student</th>
+            <th>Submitted</th>
+            <th>Auto Score</th>
+            <th>Flags</th>
+            {% for cp in checkpoints %}
+            <th>{{ cp.title }}</th>
+            {% endfor %}
+            <th>Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        {% include "_ta_row.html" %}
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="question-block" style="text-align: center; color: #6c757d;">
+    No submissions yet.
+</div>
+{% endif %}
+
+<div style="margin-top: 1.5rem;">
+    <a href="/ta/assignment/{{ assignment_id }}/structure" class="btn" style="display: inline-block; text-decoration: none;">
+        View Assignment Structure
+    </a>
+    <a href="/dev/launch" class="btn" style="display: inline-block; text-decoration: none; background: #6c757d;">
+        Switch to Student View
+    </a>
+</div>
+{% endblock %}
