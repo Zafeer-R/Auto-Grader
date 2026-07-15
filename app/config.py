@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     ags_mode: str = "dry_run"  # live | dry_run | disabled
     lti_token_url: str = ""
     lti_tool_private_key: str = ""  # PEM, RS256
+    lti_tool_key_id: str = ""  # JWT kid; required by Canvas JWK-set registrations
 
     @property
     def lti_configured(self) -> bool:

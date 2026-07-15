@@ -2,7 +2,7 @@ import datetime
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -20,6 +20,15 @@ router = APIRouter(tags=["grading"])
 templates = Jinja2Templates(directory="app/templates")
 
 ANSWER_KEYS_DIR = Path("answer_keys")
+
+
+def _require_launched_assignment(request: Request, assignment_id: str) -> None:
+    """Ensure grading stays bound to the assignment from the signed launch session."""
+    if request.session.get("assignment_id") != assignment_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Assignment does not match the active launch.",
+        )
 
 
 def load_answer_key(assignment_id: str) -> dict | None:
@@ -104,6 +113,8 @@ async def submit_assignment(
         return templates.TemplateResponse(request, "error.html", {
             "message": "Not authenticated.",
         })
+
+    _require_launched_assignment(request, assignment_id)
 
     form_data = await request.form()
 
